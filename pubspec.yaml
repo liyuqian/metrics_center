@@ -2,6 +2,8 @@ name: metrics_center
 
 dependencies:
   gcloud: any
+  googleapis: any
+  googleapis_auth: any
 
 dev_dependencies:
   test: any

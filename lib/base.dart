@@ -147,3 +147,7 @@ const int kMinTimeNanos = -(1 << 53);
 /// Known source/destination ids
 const String kCocoonId = 'cocoon';
 const String kSkiaPerfId = 'skiaperf';
+
+/// Known repo url
+const String kFlutterFrameworkRepo = 'https://github.com/flutter/flutter';
+const String kFlutterEngineRepo = 'https://github.com/flutter/engine';
