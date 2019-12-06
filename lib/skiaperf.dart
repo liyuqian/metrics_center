@@ -1,4 +1,3 @@
-import 'dart:collection';
 import 'dart:convert';
 
 import 'package:gcloud/storage.dart';
@@ -33,12 +32,17 @@ import 'base.dart';
 //             },
 //     ...
 
-class SkiaPoint extends Point {
-  SkiaPoint(this.gitRepo, this.gitHash, this.value, this._options, this.jsonUrl)
-      : tags = SplayTreeMap.from(_options) {
-    tags[kGitRepoKey] = gitRepo;
-    tags[kGitRevisionKey] = gitHash;
-
+class SkiaPoint extends BasePoint {
+  SkiaPoint(this.gitRepo, this.gitHash, double value, this._options,
+      this.jsonUrl, int updateTimeNanos)
+      : super(
+          value,
+          {}
+            ..addAll(_options)
+            ..addAll({kGitRepoKey: gitRepo, kGitRevisionKey: gitHash}),
+          _options[kSourceIdKey] ?? kSkiaPerfId,
+          updateTimeNanos,
+        ) {
     assert(tags[kGitRepoKey] != null);
     assert(tags[kGitRevisionKey] != null);
     assert(tags[kNameKey] != null);
@@ -71,28 +75,18 @@ class SkiaPoint extends Point {
 
     assert(optionsWithSourceId[kSourceIdKey] == p.sourceId);
 
-    return SkiaPoint(gitRepo, gitHash, p.value, optionsWithSourceId, null);
+    return SkiaPoint(
+        gitRepo, gitHash, p.value, optionsWithSourceId, null, null);
   }
-
-  @override
-  final double value;
-
-  @override
-  final SplayTreeMap<String, String> tags;
-
-  /// If the source id is not specified in tags, we'll consider this as the
-  /// original data from Skia perf.
-  @override
-  String get sourceId => tags[kSourceIdKey] ?? 'perf.skia.org';
-
-  @override
-  int get updateTimeNanos => gsFileModifiedTimeNanos(jsonUrl);
 
   final String gitRepo;
   final String gitHash;
 
   String get name => tags[kNameKey];
 
+  /// The url to the Skia perf json file in the Google Cloud Storage bucket.
+  ///
+  /// This can be null if the point has been stored in the bucket yet.
   final String jsonUrl;
 
   Map<String, dynamic> _toSubResultJson() {
@@ -156,7 +150,8 @@ class SkiaPerfDestination extends MetricsDestination {
     // 2nd, read existing points from the gcs object and update with new ones.
     for (String repo in pointMap.keys) {
       for (String revision in pointMap[repo].keys) {
-        final String objectName = SkiaPerfGcsAdaptor.comptueObjectName(repo, revision);
+        final String objectName =
+            SkiaPerfGcsAdaptor.comptueObjectName(repo, revision);
         final Map<String, SkiaPoint> newPoints = pointMap[repo][revision];
         final List<SkiaPoint> oldPoints = await _gcs.readPoints(objectName);
         for (SkiaPoint p in oldPoints) {
@@ -209,6 +204,7 @@ class SkiaPerfGcsAdaptor {
         subResult[kSkiaPerfValueKey],
         subResult[kSkiaPerfOptionsKey],
         null,
+        null,
       ));
     }
     return points;
@@ -236,16 +232,6 @@ class SkiaPerfGcsAdaptor {
   }
 
   Bucket _gcsBucket;
-}
-
-int gsFileModifiedTimeNanos(String url) {
-  // throw UnimplementedError();
-  return null;
-}
-
-String gsFileRead(String url) {
-  // throw UnimplementedError();
-  return null;
 }
 
 const String kSkiaPerfGitHashKey = 'gitHash';

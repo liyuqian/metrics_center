@@ -6,7 +6,7 @@ abstract class Point {
   double get value;
 
   /// Test name, unit, timestamp, configs, git revision, ..., in sorted order
-  SplayTreeMap<String, String> get tags;
+  UnmodifiableMapView<String, String> get tags;
 
   /// Where this comes from. Used for dedup.
   String get sourceId;
@@ -14,8 +14,10 @@ abstract class Point {
   /// The last modified time. Can be null if it's not stored in the database yet.
   int get updateTimeNanos;
 
-  /// Unique identifier for updating existing data point
-  String get id => '$sourceId: $tags';
+  /// Unique identifier for updating existing data point.
+  ///
+  /// This id should stay constant even if the tags map's keys are reordered.
+  String get id;
 }
 
 /// Base implementation of [Point] used by the [MetricsCenter].
@@ -25,19 +27,25 @@ class BasePoint extends Point {
     Map<String, dynamic> tags,
     this.sourceId,
     this.updateTimeNanos,
-  ) : this.tags = SplayTreeMap.from(tags) {}
+  ) : this._tags = SplayTreeMap.from(tags) {}
 
   @override
   final double value;
 
   @override
-  final SplayTreeMap<String, String> tags;
+  UnmodifiableMapView<String, String> get tags =>
+      UnmodifiableMapView<String, String>(_tags);
 
   @override
   final String sourceId;
 
   @override
   final int updateTimeNanos; // the last modified time
+
+  @override
+  String get id => '$sourceId: $_tags';
+
+  final SplayTreeMap<String, String> _tags;
 }
 
 /// Source must support efficient index on [Point.updateTimeNanos]
