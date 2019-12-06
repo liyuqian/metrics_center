@@ -4,6 +4,7 @@ dependencies:
   gcloud: any
   googleapis: any
   googleapis_auth: any
+  github: ^6.0.0
 
 dev_dependencies:
   test: any

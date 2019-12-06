@@ -142,7 +142,7 @@ abstract class MetricsCenter
 }
 
 /// Some common tag keys
-const String kGitRepoKey = 'gitRepo';
+const String kGithubRepoKey = 'gitRepo';
 const String kGitRevisionKey = 'gitRevision';
 const String kSourceIdKey = 'sourceId';
 const String kTaskNameKey = 'taskName';
@@ -156,6 +156,6 @@ const int kMinTimeNanos = -(1 << 53);
 const String kCocoonId = 'cocoon';
 const String kSkiaPerfId = 'skiaperf';
 
-/// Known repo url
-const String kFlutterFrameworkRepo = 'https://github.com/flutter/flutter';
-const String kFlutterEngineRepo = 'https://github.com/flutter/engine';
+/// Known github repo
+const String kFlutterFrameworkRepo = 'flutter/flutter';
+const String kFlutterEngineRepo = 'flutter/engine';

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:gcloud/storage.dart';
+import 'package:metrics_center/github_helper.dart';
 
 import 'base.dart';
 
@@ -33,27 +34,27 @@ import 'base.dart';
 //     ...
 
 class SkiaPoint extends BasePoint {
-  SkiaPoint(this.gitRepo, this.gitHash, double value, this._options,
+  SkiaPoint(this.githubRepo, this.gitHash, double value, this._options,
       this.jsonUrl, int updateTimeNanos)
       : super(
           value,
           {}
             ..addAll(_options)
-            ..addAll({kGitRepoKey: gitRepo, kGitRevisionKey: gitHash}),
+            ..addAll({kGithubRepoKey: githubRepo, kGitRevisionKey: gitHash}),
           _options[kSourceIdKey] ?? kSkiaPerfId,
           updateTimeNanos,
         ) {
-    assert(tags[kGitRepoKey] != null);
+    assert(tags[kGithubRepoKey] != null);
     assert(tags[kGitRevisionKey] != null);
     assert(tags[kNameKey] != null);
-    assert(_options[kGitRepoKey] == null);
+    assert(_options[kGithubRepoKey] == null);
     assert(_options[kGitRevisionKey] == null);
   }
 
   factory SkiaPoint.fromPoint(Point p) {
-    final String gitRepo = p.tags[kGitRepoKey];
+    final String githubRepo = p.tags[kGithubRepoKey];
     final String gitHash = p.tags[kGitRevisionKey];
-    if (gitRepo == null || gitHash == null) {
+    if (githubRepo == null || gitHash == null) {
       return null;
     }
 
@@ -64,7 +65,7 @@ class SkiaPoint extends BasePoint {
     final Map<String, String> optionsWithSourceId = {}..addEntries(
         p.tags.entries.where(
           (MapEntry<String, dynamic> entry) =>
-              entry.key != kGitRepoKey && entry.key != kGitRevisionKey,
+              entry.key != kGithubRepoKey && entry.key != kGitRevisionKey,
         ),
       );
 
@@ -76,10 +77,14 @@ class SkiaPoint extends BasePoint {
     assert(optionsWithSourceId[kSourceIdKey] == p.sourceId);
 
     return SkiaPoint(
-        gitRepo, gitHash, p.value, optionsWithSourceId, null, null);
+        githubRepo, gitHash, p.value, optionsWithSourceId, null, null);
   }
 
-  final String gitRepo;
+  /// In the format of '<owner>/<name>' such as 'flutter/flutter' or
+  /// 'flutter/engine'.
+  final String githubRepo;
+
+  /// SHA such as 'ad20d368ffa09559754e4b2b5c12951341ca3b2d'
   final String gitHash;
 
   String get name => tags[kNameKey];
@@ -104,12 +109,13 @@ class SkiaPoint extends BasePoint {
     assert(points.length > 0);
     assert(() {
       for (SkiaPoint p in points) {
-        if (p.gitRepo != points[0].gitRepo || p.gitHash != points[0].gitHash) {
+        if (p.githubRepo != points[0].githubRepo ||
+            p.gitHash != points[0].gitHash) {
           return false;
         }
       }
       return true;
-    }(), 'All points must have same gitRepo and gitHash');
+    }(), 'All points must have same githubRepo and gitHash');
 
     final results = <String, dynamic>{};
     for (SkiaPoint p in points) {
@@ -141,17 +147,16 @@ class SkiaPerfDestination extends MetricsDestination {
     final Map<String, Map<String, Map<String, SkiaPoint>>> pointMap = {};
     for (SkiaPoint p in points.map((x) => SkiaPoint.fromPoint(x))) {
       if (p != null) {
-        pointMap[p.gitRepo] ??= {};
-        pointMap[p.gitRepo][p.gitHash] ??= {};
-        pointMap[p.gitRepo][p.gitHash][p.id] = p;
+        pointMap[p.githubRepo] ??= {};
+        pointMap[p.githubRepo][p.gitHash] ??= {};
+        pointMap[p.githubRepo][p.gitHash][p.id] = p;
       }
     }
 
     // 2nd, read existing points from the gcs object and update with new ones.
     for (String repo in pointMap.keys) {
       for (String revision in pointMap[repo].keys) {
-        final String objectName =
-            SkiaPerfGcsAdaptor.comptueObjectName(repo, revision);
+        final String objectName = await SkiaPerfGcsAdaptor.comptueObjectName(repo, revision);
         final Map<String, SkiaPoint> newPoints = pointMap[repo][revision];
         final List<SkiaPoint> oldPoints = await _gcs.readPoints(objectName);
         for (SkiaPoint p in oldPoints) {
@@ -189,9 +194,9 @@ class SkiaPerfGcsAdaptor {
     final List<SkiaPoint> points = [];
 
     final String firstGcsNameComponent = objectName.split('/')[0];
-    _populateGcsNameToGitRepoMapIfNeeded();
-    final String gitRepo = _gcsNameToGitRepo[firstGcsNameComponent];
-    assert(gitRepo != null);
+    _populateGcsNameToGithubRepoMapIfNeeded();
+    final String githubRepo = _gcsNameToGithubRepo[firstGcsNameComponent];
+    assert(githubRepo != null);
 
     final String gitHash = decodedJson[kSkiaPerfGitHashKey];
     Map<String, dynamic> results = decodedJson[kSkiaPerfResultsKey];
@@ -199,7 +204,7 @@ class SkiaPerfGcsAdaptor {
       final Map<String, dynamic> subResult = results[name];
       // TODO(liyuqian): set jsonUrl and updateTimeNanos
       points.add(SkiaPoint(
-        gitRepo,
+        githubRepo,
         gitHash,
         subResult[kSkiaPerfValueKey],
         subResult[kSkiaPerfOptionsKey],
@@ -210,23 +215,28 @@ class SkiaPerfGcsAdaptor {
     return points;
   }
 
-  static String comptueObjectName(String repo, String revision) {
-    return '${_gitRepoToGcsName[repo]}/$revision/values.json';
-    // TODO: implement
+  static Future<String> comptueObjectName(
+      String githubRepo, String revision) async {
+    assert(_githubRepoToGcsName[githubRepo] != null);
+    final String topComponent = _githubRepoToGcsName[githubRepo];
+    final DateTime t =
+        await GithubHelper().getCommitDateTime(githubRepo, revision);
+    final String dateComponents = '${t.year}/${t.month}/${t.day}';
+    return '$topComponent/$dateComponents/$revision/values.json';
   }
 
-  static final Map<String, String> _gitRepoToGcsName = {
+  static final Map<String, String> _githubRepoToGcsName = {
     kFlutterFrameworkRepo: 'flutter-flutter',
     kFlutterEngineRepo: 'flutter-engine',
   };
-  static final Map<String, String> _gcsNameToGitRepo = {};
+  static final Map<String, String> _gcsNameToGithubRepo = {};
 
-  static void _populateGcsNameToGitRepoMapIfNeeded() {
-    if (_gcsNameToGitRepo.isEmpty) {
-      for (String repo in _gitRepoToGcsName.keys) {
-        final String gcsName = _gitRepoToGcsName[repo];
-        assert(_gcsNameToGitRepo[gcsName] == null);
-        _gcsNameToGitRepo[gcsName] = repo;
+  static void _populateGcsNameToGithubRepoMapIfNeeded() {
+    if (_gcsNameToGithubRepo.isEmpty) {
+      for (String repo in _githubRepoToGcsName.keys) {
+        final String gcsName = _githubRepoToGcsName[repo];
+        assert(_gcsNameToGithubRepo[gcsName] == null);
+        _gcsNameToGithubRepo[gcsName] = repo;
       }
     }
   }

@@ -31,19 +31,19 @@ void main() {
   const double value3 = 3.0;
   const int dummyTimestamp = 0;
 
-  const String frameworkRevision1 = 'fe4a4029a080bc955e9588d05a6cd9eb490845d4';
+  const String frameworkRevision1 = '9011cece2595447eea5dd91adaa241c1c9ef9a33';
   const String frameworkRevision2 = '372fe290e4d4f3f97cbf02a57d235771a9412f10';
   const String name1 = 'analyzer_benchmark.flutter_repo_batch_maximum';
   const String name2 = 'analyzer_benchmark.flutter_repo_watch_maximum';
 
-  const String engineRevision1 = 'd117ac979c28363a0a6b02d4a54945212a88b6f9';
+  const String engineRevision1 = '617938024315e205f26ed72ff0f0647775fa6a71';
 
   const String testBucketName = 'personal-test-211504-test';
 
   final cocoonPointRev1Name1 = BasePoint(
     value1,
     <String, dynamic>{
-      kGitRepoKey: kFlutterFrameworkRepo,
+      kGithubRepoKey: kFlutterFrameworkRepo,
       kGitRevisionKey: frameworkRevision1,
       kTaskNameKey: 'analyzer_benchmark',
       kNameKey: name1,
@@ -56,7 +56,7 @@ void main() {
   final cocoonPointRev1Name2 = BasePoint(
     value2,
     <String, dynamic>{
-      kGitRepoKey: kFlutterFrameworkRepo,
+      kGithubRepoKey: kFlutterFrameworkRepo,
       kGitRevisionKey: frameworkRevision1,
       kTaskNameKey: 'analyzer_benchmark',
       kNameKey: name2,
@@ -69,7 +69,7 @@ void main() {
   final cocoonPointRev2Name1 = BasePoint(
     value3,
     <String, dynamic>{
-      kGitRepoKey: kFlutterFrameworkRepo,
+      kGithubRepoKey: kFlutterFrameworkRepo,
       kGitRevisionKey: frameworkRevision2,
       kTaskNameKey: 'analyzer_benchmark',
       kNameKey: name1,
@@ -80,7 +80,7 @@ void main() {
   );
 
   test('Invalid points convert to null SkiaPoint', () {
-    final noGitRepoPoint = BasePoint(
+    final noGithubRepoPoint = BasePoint(
       value1,
       <String, dynamic>{
         kGitRevisionKey: frameworkRevision1,
@@ -92,13 +92,13 @@ void main() {
     final noGitRevisionPoint = BasePoint(
       value1,
       <String, dynamic>{
-        kGitRepoKey: kFlutterFrameworkRepo,
+        kGithubRepoKey: kFlutterFrameworkRepo,
       },
       kCocoonId,
       dummyTimestamp,
     );
 
-    expect(SkiaPoint.fromPoint(noGitRepoPoint), isNull);
+    expect(SkiaPoint.fromPoint(noGithubRepoPoint), isNull);
     expect(SkiaPoint.fromPoint(noGitRevisionPoint), isNull);
   });
 
@@ -113,18 +113,6 @@ void main() {
     expect(skiaPoint1.jsonUrl, isNull); // Not inserted yet
   });
 
-  // TODO(liyuqian): test the correct name with date
-  test('SkiaPerfGcsAdaptor computes name correctly', () {
-    expect(
-      SkiaPerfGcsAdaptor.comptueObjectName(kFlutterFrameworkRepo, frameworkRevision1),
-      equals('flutter-flutter/$frameworkRevision1/values.json'),
-    );
-    expect(
-      SkiaPerfGcsAdaptor.comptueObjectName(kFlutterEngineRepo, engineRevision1),
-      equals('flutter-engine/$engineRevision1/values.json'),
-    );
-  });
-
   test('SkiaPoints correctly encode into Skia perf json format', () {
     final p1 = SkiaPoint.fromPoint(cocoonPointRev1Name1);
     final p2 = SkiaPoint.fromPoint(cocoonPointRev1Name2);
@@ -133,7 +121,7 @@ void main() {
     expect(encoder.convert(SkiaPoint.toSkiaPerfJson(<SkiaPoint>[p1, p2])),
         equals('''
 {
-  "gitHash": "fe4a4029a080bc955e9588d05a6cd9eb490845d4",
+  "gitHash": "9011cece2595447eea5dd91adaa241c1c9ef9a33",
   "results": {
     "analyzer_benchmark.flutter_repo_batch_maximum": {
       "value": 1.0,
@@ -167,7 +155,8 @@ void main() {
     await dest.update(<BasePoint>[cocoonPointRev1Name1]);
     await dest.update(<BasePoint>[cocoonPointRev1Name2]);
     List<SkiaPoint> points = await mockGcs.readPoints(
-        SkiaPerfGcsAdaptor.comptueObjectName(kFlutterFrameworkRepo, frameworkRevision1));
+        await SkiaPerfGcsAdaptor.comptueObjectName(
+            kFlutterFrameworkRepo, frameworkRevision1));
     expect(points.length, equals(2));
     _expectSetMatch<String>(
         points.map((SkiaPoint p) => p.sourceId), [kCocoonId, kCocoonId]);
@@ -176,10 +165,24 @@ void main() {
 
     await dest.update(<BasePoint>[cocoonPointRev1Name1, cocoonPointRev2Name1]);
     points = await mockGcs.readPoints(
-        SkiaPerfGcsAdaptor.comptueObjectName(kFlutterFrameworkRepo, frameworkRevision2));
+        await SkiaPerfGcsAdaptor.comptueObjectName(
+            kFlutterFrameworkRepo, frameworkRevision2));
     expect(points.length, equals(1));
     expect(points[0].gitHash, equals(frameworkRevision2));
     expect(points[0].value, equals(value3));
+  });
+
+  test('SkiaPerfGcsAdaptor computes name correctly', () async {
+    expect(
+      await SkiaPerfGcsAdaptor.comptueObjectName(
+          kFlutterFrameworkRepo, frameworkRevision1),
+      equals('flutter-flutter/2019/12/4/$frameworkRevision1/values.json'),
+    );
+    expect(
+      await SkiaPerfGcsAdaptor.comptueObjectName(
+          kFlutterEngineRepo, engineRevision1),
+      equals('flutter-engine/2019/12/3/$engineRevision1/values.json'),
+    );
   });
 
   test('SkiaPerfGcsAdaptor passes end-to-end test with Google Cloud Storage',
@@ -202,8 +205,8 @@ void main() {
     final Bucket testBucket = storage.bucket(testBucketName);
     final skiaPerfGcs = SkiaPerfGcsAdaptor(testBucket);
 
-    final String testObjectName =
-        SkiaPerfGcsAdaptor.comptueObjectName(kFlutterFrameworkRepo, frameworkRevision1);
+    final String testObjectName = await SkiaPerfGcsAdaptor.comptueObjectName(
+        kFlutterFrameworkRepo, frameworkRevision1);
 
     await skiaPerfGcs.writePoints(testObjectName, <SkiaPoint>[
       SkiaPoint.fromPoint(cocoonPointRev1Name1),
@@ -218,7 +221,9 @@ void main() {
         points.map((SkiaPoint p) => p.sourceId), [kCocoonId, kCocoonId]);
     _expectSetMatch(points.map((SkiaPoint p) => p.name), [name1, name2]);
     _expectSetMatch(points.map((SkiaPoint p) => p.value), [value1, value2]);
-    _expectSetMatch(points.map((SkiaPoint p) => p.gitRepo), [kFlutterFrameworkRepo]);
-    _expectSetMatch(points.map((SkiaPoint p) => p.gitHash), [frameworkRevision1]);
+    _expectSetMatch(
+        points.map((SkiaPoint p) => p.githubRepo), [kFlutterFrameworkRepo]);
+    _expectSetMatch(
+        points.map((SkiaPoint p) => p.gitHash), [frameworkRevision1]);
   });
 }
