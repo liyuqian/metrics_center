@@ -181,7 +181,7 @@ class SkiaPerfGcsAdaptor {
   Future<void> writePoints(
       String objectName, Iterable<SkiaPoint> points) async {
     String jsonString = jsonEncode(SkiaPoint.toSkiaPerfJson(points));
-    _gcsBucket.writeBytes(objectName, utf8.encode(jsonString));
+    await _gcsBucket.writeBytes(objectName, utf8.encode(jsonString));
   }
 
   // Return an  empty list if the object does not exist in the GCS bucket.

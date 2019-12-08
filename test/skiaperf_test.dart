@@ -213,8 +213,6 @@ void main() {
       SkiaPoint.fromPoint(cocoonPointRev1Name2),
     ]);
 
-    // TODO(liyuqian): the points written may not be immediately readable. It
-    // seems that GCS needs some time to settle the data.
     final List<SkiaPoint> points = await skiaPerfGcs.readPoints(testObjectName);
     expect(points.length, equals(2));
     _expectSetMatch<String>(
