@@ -225,5 +225,9 @@ void main() {
         points.map((SkiaPoint p) => p.githubRepo), [kFlutterFrameworkRepo]);
     _expectSetMatch(
         points.map((SkiaPoint p) => p.gitHash), [frameworkRevision1]);
+    for (int i = 0; i < 2; i += 1) {
+      expect(points[0].jsonUrl, startsWith('https://'));
+      expect(points[0].updateTimeNanos, isNotNull);
+    }
   });
 }

@@ -186,6 +186,7 @@ class SkiaPerfGcsAdaptor {
 
   // Return an  empty list if the object does not exist in the GCS bucket.
   Future<List<SkiaPoint>> readPoints(String objectName) async {
+    final ObjectInfo info = await _gcsBucket.info(objectName);
     final Stream<List<int>> stream = _gcsBucket.read(objectName);
     final Stream<int> byteStream = stream.expand((x) => x);
     final Map<String, dynamic> decodedJson =
@@ -202,14 +203,13 @@ class SkiaPerfGcsAdaptor {
     Map<String, dynamic> results = decodedJson[kSkiaPerfResultsKey];
     for (String name in results.keys) {
       final Map<String, dynamic> subResult = results[name];
-      // TODO(liyuqian): set jsonUrl and updateTimeNanos
       points.add(SkiaPoint(
         githubRepo,
         gitHash,
         subResult[kSkiaPerfValueKey],
         subResult[kSkiaPerfOptionsKey],
-        null,
-        null,
+        info.downloadLink.toString(),
+        info.updated.microsecondsSinceEpoch * 1000,
       ));
     }
     return points;
