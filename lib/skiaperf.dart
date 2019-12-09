@@ -35,14 +35,14 @@ import 'base.dart';
 
 class SkiaPoint extends BasePoint {
   SkiaPoint(this.githubRepo, this.gitHash, double value, this._options,
-      this.jsonUrl, int updateTimeNanos)
+      this.jsonUrl, int srcTimeNanos)
       : super(
           value,
           {}
             ..addAll(_options)
             ..addAll({kGithubRepoKey: githubRepo, kGitRevisionKey: gitHash}),
           _options[kSourceIdKey] ?? kSkiaPerfId,
-          updateTimeNanos,
+          srcTimeNanos,
         ) {
     assert(tags[kGithubRepoKey] != null);
     assert(tags[kGitRevisionKey] != null);
@@ -54,11 +54,7 @@ class SkiaPoint extends BasePoint {
   factory SkiaPoint.fromPoint(Point p) {
     final String githubRepo = p.tags[kGithubRepoKey];
     final String gitHash = p.tags[kGitRevisionKey];
-    if (githubRepo == null || gitHash == null) {
-      return null;
-    }
-
-    if (p.tags[kNameKey] == null) {
+    if (githubRepo == null || gitHash == null || p.tags[kNameKey] == null) {
       return null;
     }
 
@@ -156,7 +152,8 @@ class SkiaPerfDestination extends MetricsDestination {
     // 2nd, read existing points from the gcs object and update with new ones.
     for (String repo in pointMap.keys) {
       for (String revision in pointMap[repo].keys) {
-        final String objectName = await SkiaPerfGcsAdaptor.comptueObjectName(repo, revision);
+        final String objectName =
+            await SkiaPerfGcsAdaptor.comptueObjectName(repo, revision);
         final Map<String, SkiaPoint> newPoints = pointMap[repo][revision];
         final List<SkiaPoint> oldPoints = await _gcs.readPoints(objectName);
         for (SkiaPoint p in oldPoints) {

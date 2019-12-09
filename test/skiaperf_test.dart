@@ -109,7 +109,7 @@ void main() {
     expect(skiaPoint1.name, equals(name1));
     expect(skiaPoint1.value, equals(cocoonPointRev1Name1.value));
 
-    expect(skiaPoint1.updateTimeNanos, isNull); // Not inserted yet
+    expect(skiaPoint1.srcTimeNanos, isNull); // Not inserted yet
     expect(skiaPoint1.jsonUrl, isNull); // Not inserted yet
   });
 
@@ -225,7 +225,7 @@ void main() {
         points.map((SkiaPoint p) => p.gitHash), [frameworkRevision1]);
     for (int i = 0; i < 2; i += 1) {
       expect(points[0].jsonUrl, startsWith('https://'));
-      expect(points[0].updateTimeNanos, isNotNull);
+      expect(points[0].srcTimeNanos, isNotNull);
     }
   });
 }
