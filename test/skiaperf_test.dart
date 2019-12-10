@@ -228,4 +228,8 @@ void main() {
       expect(points[0].srcTimeNanos, isNotNull);
     }
   });
+
+  test('test', () {
+    print(jsonEncode({'hello': 'world'}));
+  });
 }
