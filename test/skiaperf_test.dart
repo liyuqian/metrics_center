@@ -1,13 +1,14 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:gcloud/storage.dart';
 import 'package:googleapis_auth/auth.dart';
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:test/test.dart';
 
-import '../lib/base.dart';
-import '../lib/skiaperf.dart';
+import 'package:metrics_center/base.dart';
+import 'package:metrics_center/skiaperf.dart';
+
+import 'utility.dart';
 
 class MockSkiaPerfGcsAdaptor implements SkiaPerfGcsAdaptor {
   @override
@@ -151,9 +152,9 @@ void main() {
 
   test('SkiaPerfDestination correctly updates points', () async {
     final mockGcs = MockSkiaPerfGcsAdaptor();
-    final dest = SkiaPerfDestination(mockGcs);
-    await dest.update(<BasePoint>[cocoonPointRev1Name1]);
-    await dest.update(<BasePoint>[cocoonPointRev1Name2]);
+    final dst = SkiaPerfDestination(mockGcs);
+    await dst.update(<BasePoint>[cocoonPointRev1Name1]);
+    await dst.update(<BasePoint>[cocoonPointRev1Name2]);
     List<SkiaPoint> points = await mockGcs.readPoints(
         await SkiaPerfGcsAdaptor.comptueObjectName(
             kFlutterFrameworkRepo, frameworkRevision1));
@@ -163,7 +164,7 @@ void main() {
     _expectSetMatch(points.map((SkiaPoint p) => p.name), [name1, name2]);
     _expectSetMatch(points.map((SkiaPoint p) => p.value), [value1, value2]);
 
-    await dest.update(<BasePoint>[cocoonPointRev1Name1, cocoonPointRev2Name1]);
+    await dst.update(<BasePoint>[cocoonPointRev1Name1, cocoonPointRev2Name1]);
     points = await mockGcs.readPoints(
         await SkiaPerfGcsAdaptor.comptueObjectName(
             kFlutterFrameworkRepo, frameworkRevision2));
@@ -187,14 +188,7 @@ void main() {
 
   test('SkiaPerfGcsAdaptor passes end-to-end test with Google Cloud Storage',
       () async {
-    final gcpCredentialsDir = Directory('secret/gcp_credentials');
-    expect(gcpCredentialsDir.existsSync(), isTrue);
-
-    final List<FileSystemEntity> credentialFiles = gcpCredentialsDir.listSync();
-    expect(credentialFiles.length, equals(1));
-
-    final credentialFile = File(credentialFiles[0].uri.toFilePath());
-    final credentialsJson = jsonDecode(credentialFile.readAsStringSync());
+    final Map<String, dynamic> credentialsJson = getGcpCredentialsJson();
     final credentials = ServiceAccountCredentials.fromJson(credentialsJson);
 
     final client = await clientViaServiceAccount(credentials, Storage.SCOPES);
@@ -227,9 +221,5 @@ void main() {
       expect(points[0].jsonUrl, startsWith('https://'));
       expect(points[0].srcTimeNanos, isNotNull);
     }
-  });
-
-  test('test', () {
-    print(jsonEncode({'hello': 'world'}));
   });
 }

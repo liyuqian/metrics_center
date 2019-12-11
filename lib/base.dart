@@ -28,7 +28,10 @@ class BasePoint extends Point {
     Map<String, dynamic> tags,
     this.sourceId,
     this.srcTimeNanos,
-  ) : this._tags = SplayTreeMap.from(tags) {}
+  )   : assert(value != null),
+        assert(tags != null),
+        assert(sourceId != null),
+        this._tags = SplayTreeMap.from(tags);
 
   @override
   final double value;
