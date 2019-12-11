@@ -15,15 +15,17 @@ const kSrcTimeNanosColName = 'srcTimeNanos';
 class BigQueryAdaptor {
   /// The projectId will be inferred from the credentials json.
   static Future<BigQueryAdaptor> makeFromCredentialsJson(
-    Map<String, dynamic> json,
-    List<String> scopes, {
-    String datasetId = kFlutterCenterId,
-    String tableId = kFlutterCenterId,
+    Map<String, dynamic> json, {
+    bool insertOnly = false,
+    String datasetId = 'flutter_center',
+    String tableId = 'metrics',
   }) async {
     final bq = BigqueryApi(await clientViaServiceAccount(
-        ServiceAccountCredentials.fromJson(json), scopes));
-    return BigQueryAdaptor._(
-        bq, json['project_id'], datasetId, tableId);
+        ServiceAccountCredentials.fromJson(json),
+        insertOnly
+            ? [BigqueryApi.BigqueryInsertdataScope]
+            : [BigqueryApi.BigqueryScope]));
+    return BigQueryAdaptor._(bq, json['project_id'], datasetId, tableId);
   }
 
   final String projectId;
@@ -35,17 +37,11 @@ class BigQueryAdaptor {
 }
 
 class FlutterDestination extends MetricsDestination {
-  FlutterDestination(this._adaptor);
-
   static Future<FlutterDestination> makeFromCredentialsJson(
-    Map<String, dynamic> json, {
-    String datasetId = kFlutterCenterId,
-    String tableId = kFlutterCenterId,
-  }) async {
-    final adaptor = await BigQueryAdaptor.makeFromCredentialsJson(
-        json, [BigqueryApi.BigqueryInsertdataScope],
-        datasetId: datasetId, tableId: tableId);
-    return FlutterDestination(adaptor);
+      Map<String, dynamic> json) async {
+    final adaptor =
+        await BigQueryAdaptor.makeFromCredentialsJson(json, insertOnly: true);
+    return FlutterDestination._(adaptor);
   }
 
   @override
@@ -77,10 +73,12 @@ class FlutterDestination extends MetricsDestination {
       _adaptor.tableId,
     );
 
-    if (response.insertErrors.isNotEmpty) {
+    if (response.insertErrors != null && response.insertErrors.isNotEmpty) {
       throw InsertError(response.insertErrors);
     }
   }
+
+  FlutterDestination._(this._adaptor);
 
   final BigQueryAdaptor _adaptor;
 }
@@ -108,8 +106,64 @@ class FlutterCenter extends MetricsCenter {
     await _internalDst.update(points);
   }
 
+  Future<void> createTableIfNeeded() async {
+    try {
+      await _adaptor.bq.datasets.get(_adaptor.projectId, _adaptor.datasetId);
+    } on DetailedApiRequestError catch (e) {
+      if (e.message.contains('Not found: Dataset')) {
+        final datasetRef = DatasetReference()..datasetId = _adaptor.datasetId;
+        await _adaptor.bq.datasets.insert(
+            Dataset()..datasetReference = datasetRef, _adaptor.projectId);
+      } else {
+        throw e;
+      }
+    }
+
+    try {
+      await _adaptor.bq.tables
+          .get(_adaptor.projectId, _adaptor.datasetId, _adaptor.tableId);
+    } on DetailedApiRequestError catch (e) {
+      if (e.message.contains('Not found: Table')) {
+        final Table table = Table();
+        table.tableReference = TableReference()..tableId = _adaptor.tableId;
+
+        table.schema = TableSchema()
+          ..fields = <TableFieldSchema>[
+            TableFieldSchema()
+              ..name = kValueColName
+              ..type = 'FLOAT'
+              ..mode = 'REQUIRED',
+            TableFieldSchema()
+              ..name = kTagsColName
+              ..type = 'STRING'
+              ..mode = 'REPEATED',
+            TableFieldSchema()
+              ..name = kSourceIdColName
+              ..type = 'STRING'
+              ..mode = 'REQUIRED',
+            TableFieldSchema()
+              ..name = kSrcTimeNanosColName
+              ..type = 'INTEGER'
+              ..mode = 'REQUIRED',
+          ];
+
+        await _adaptor.bq.tables
+            .insert(table, _adaptor.projectId, _adaptor.datasetId);
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  static Future<FlutterCenter> makeFromCredentialsJson(
+      Map<String, dynamic> json) async {
+    final adaptor = await BigQueryAdaptor.makeFromCredentialsJson(json);
+    return FlutterCenter._(adaptor);
+  }
+
   // TODO(liyuqian): also construct with src and dst list
-  FlutterCenter(this._adaptor) : _internalDst = FlutterDestination(_adaptor);
+  FlutterCenter._(this._adaptor)
+      : _internalDst = FlutterDestination._(_adaptor);
 
   final FlutterDestination _internalDst;
 
@@ -126,4 +180,9 @@ class InsertError extends Error {
   InsertError(this.actualErrors);
 
   final List<TableDataInsertAllResponseInsertErrors> actualErrors;
+
+  @override
+  String toString() {
+    return 'InsertError: ${actualErrors.map((e) => e.toJson())}';
+  }
 }
