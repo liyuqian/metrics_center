@@ -20,7 +20,7 @@ class MockSkiaPerfGcsAdaptor implements SkiaPerfGcsAdaptor {
 
   @override
   Future<void> writePoints(
-      String objectName, Iterable<SkiaPoint> points) async {
+      String objectName, List<SkiaPoint> points) async {
     _storage[objectName] = points.toList();
   }
 

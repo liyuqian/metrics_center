@@ -4,6 +4,7 @@ import 'package:googleapis/bigquery/v2.dart';
 import 'package:googleapis_auth/auth.dart';
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:metrics_center/base.dart';
+import 'package:metrics_center/gcslock.dart';
 
 import 'base.dart';
 
@@ -48,7 +49,7 @@ class FlutterDestination extends MetricsDestination {
   String get id => kFlutterCenterId;
 
   @override
-  Future<void> update(Iterable<Point> points) async {
+  Future<void> update(List<Point> points) async {
     final rows = <TableDataInsertAllRequestRows>[];
 
     for (Point p in points) {
@@ -61,8 +62,8 @@ class FlutterDestination extends MetricsDestination {
                 .map((String key) => jsonEncode({key: p.tags[key]}))
                 .toList(),
             kSourceIdColName: p.sourceId,
-            // TODO: set the srcTimeNanos to now instead of copying from the old source.
-            kSourceTimeColName: p.sourceTime,
+            // The kSourceTimeCol is intentionally left null here as it should
+            // be set in _updateSourceTime within a GcsLock.
           }),
       );
     }
@@ -85,50 +86,44 @@ class FlutterDestination extends MetricsDestination {
   final BigQueryAdaptor _adaptor;
 }
 
+// TODO(liyuqian): issue 1. support batching so we won't run out of memory
+// TODO(liyuqian): issue 2. integrate info/error logging
+// if the list is too large.
 class FlutterCenter extends MetricsCenter {
-  @override
-  Future<Iterable<BasePoint>> getUpdatesAfter(DateTime timestamp) async {
-    final request = QueryRequest()
-      ..query = '''
-        SELECT $_cols FROM `$_fullTableName`
-        WHERE $kSourceTimeColName > $timestamp
-        ORDER BY $kSourceTimeColName ASC
-      '''
-      ..useLegacySql = false;
-    QueryResponse response =
-        await _adaptor.bq.jobs.query(request, _adaptor.projectId);
-
-    // TODO(liyuqian): handle response errors
-    assert(response.errors == null || response.errors.isEmpty);
-
-    // The rows can be null if the query has no matched rows
-    if (response.rows == null) {
-      return [];
-    }
-
-    final points = <BasePoint>[];
-    for (TableRow row in response.rows) {
-      final value = double.parse(row.f[0].v);
-      final String sourceId = row.f[2].v;
-      final sourceTime = DateTime.parse(row.f[3].v);
-
-      final Map<String, String> tags = {};
-      for (Map<String, dynamic> entry in row.f[1].v) {
-        final Map<String, dynamic> singleTag = jsonDecode(entry['v']);
-        assert(singleTag.length == 1);
-        tags[singleTag.keys.elementAt(0)] = singleTag.values.elementAt(0);
-      }
-
-      points.add(BasePoint(value, tags, sourceId, sourceTime));
-    }
-    return points;
-  }
-
   @override
   String get id => kFlutterCenterId;
 
   @override
-  Future<void> update(Iterable<Point> points) async {
+  Future<List<BasePoint>> getUpdatesAfter(DateTime timestamp) async {
+    List<BasePoint> result;
+    await _lock.protectedRun(() async {
+      result = await _getPointsWithinLock(timestamp);
+    });
+    return result;
+  }
+
+  /// 1. Pull data from other sources.
+  /// 2. Acquire the global lock (in terms of planet earth) for exclusive
+  ///    single-threaded execution below. This ensures that our sourceTime
+  ///    timestamp is increasing.
+  /// 3. Mark rows with NULL sourceTime with the current time.
+  /// 4. Push data from this center to other destinations.
+  /// 5. Release the global lock.
+  ///
+  /// Note that _updateSourceTime triggers an UPDATE request, which is capped by
+  /// BigQuery at 1000 times per day per table. So we won't run this synchronize
+  /// too often. The current synchronize frequency is once per 30 minutes, or 48
+  /// times a day.
+  Future<void> synchronize() async {
+    await Future.wait(otherSources.map(pullFromSource));
+    _lock.protectedRun(() async {
+      await _updateSourceTime();
+      await Future.wait(otherDestinations.map(pushToDestination));
+    });
+  }
+
+  @override
+  Future<void> update(List<Point> points) async {
     await _internalDst.update(points);
   }
 
@@ -187,13 +182,72 @@ class FlutterCenter extends MetricsCenter {
     return FlutterCenter._(adaptor);
   }
 
-  // TODO(liyuqian): also construct with src and dst list
+  Future<void> _updateSourceTime() async {
+    final setTime = DateTime.now();
+
+    // TODO(liyuqian): check if setTime is less than or equal to the largest
+    // sourceTime in the table. If so, increment setTime.
+
+    final request = QueryRequest()
+      ..query = '''
+        UPDATE `$_fullTableName`
+        SET $kSourceTimeColName = '${setTime}'
+        WHERE $kSourceTimeColName IS NULL
+      '''
+      ..useLegacySql = false;
+    QueryResponse response =
+        await _adaptor.bq.jobs.query(request, _adaptor.projectId);
+
+    // TODO handle response errors
+    assert(response.jobComplete);
+    assert(response.errors == null || response.errors.isEmpty);
+  }
+
+  Future<List<BasePoint>> _getPointsWithinLock(DateTime timestamp) async {
+    final request = QueryRequest()
+      ..query = '''
+        SELECT $_cols FROM `$_fullTableName`
+        WHERE $kSourceTimeColName > '$timestamp'
+        ORDER BY $kSourceTimeColName ASC
+      '''
+      ..useLegacySql = false;
+    QueryResponse response =
+        await _adaptor.bq.jobs.query(request, _adaptor.projectId);
+
+    // TODO(liyuqian): handle response errors
+    assert(response.errors == null || response.errors.isEmpty);
+
+    // The rows can be null if the query has no matched rows
+    if (response.rows == null) {
+      return [];
+    }
+
+    final points = <BasePoint>[];
+    for (TableRow row in response.rows) {
+      final value = double.parse(row.f[0].v);
+      final String sourceId = row.f[2].v;
+      final sourceTime = DateTime.parse(row.f[3].v);
+
+      final Map<String, String> tags = {};
+      for (Map<String, dynamic> entry in row.f[1].v) {
+        final Map<String, dynamic> singleTag = jsonDecode(entry['v']);
+        assert(singleTag.length == 1);
+        tags[singleTag.keys.elementAt(0)] = singleTag.values.elementAt(0);
+      }
+
+      points.add(BasePoint(value, tags, sourceId, sourceTime));
+    }
+    return points;
+  }
+
+  // TODO also construct with src and dst list
   FlutterCenter._(this._adaptor)
       : _internalDst = FlutterDestination._(_adaptor);
 
   final FlutterDestination _internalDst;
 
   final BigQueryAdaptor _adaptor;
+  final GcsLock _lock = GcsLock();
 
   String get _fullTableName =>
       '${_adaptor.projectId}.${_adaptor.datasetId}.${_adaptor.tableId}';

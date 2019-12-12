@@ -136,7 +136,7 @@ class SkiaPerfDestination extends MetricsDestination {
   String get id => kSkiaPerfId;
 
   @override
-  Future<void> update(Iterable<Point> points) async {
+  Future<void> update(List<Point> points) async {
     // 1st, create a map based on git repo, git revision, and point id. Git repo
     // and git revision are the top level components of the Skia perf GCS object
     // name.
@@ -161,7 +161,7 @@ class SkiaPerfDestination extends MetricsDestination {
             newPoints[p.id] = p;
           }
         }
-        await _gcs.writePoints(objectName, newPoints.values);
+        await _gcs.writePoints(objectName, newPoints.values.toList());
       }
     }
   }
@@ -176,7 +176,7 @@ class SkiaPerfGcsAdaptor {
   static const int version = 1;
 
   Future<void> writePoints(
-      String objectName, Iterable<SkiaPoint> points) async {
+      String objectName, List<SkiaPoint> points) async {
     String jsonString = jsonEncode(SkiaPoint.toSkiaPerfJson(points));
     await _gcsBucket.writeBytes(objectName, utf8.encode(jsonString));
   }

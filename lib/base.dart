@@ -59,7 +59,7 @@ abstract class MetricsSource<SourcePoint extends Point> {
   /// with sourceTime = [timestamp] won't be returned.)
   ///
   /// The returned points should be sorted by their srcTimeNanos ascendingly.
-  Future<Iterable<SourcePoint>> getUpdatesAfter(DateTime timestamp);
+  Future<List<SourcePoint>> getUpdatesAfter(DateTime timestamp);
 
   /// Unique id of the source. If this source is also a destination, then its
   /// corresponding destination (often the same object, e.g., [MetricsCenter])
@@ -87,7 +87,7 @@ abstract class MetricsDestination {
   /// This is especially important for the sourceId field which is used for
   /// dedup. Otherwise, there might be an update loop to generate an infinite
   /// amount of duplicate points.
-  Future<void> update(Iterable<Point> points);
+  Future<void> update(List<Point> points);
 
   /// Unique id of the destination. If this destination is also a source, then
   /// its corresponding destination (often the same object, e.g.,
@@ -99,8 +99,8 @@ abstract class MetricsDestination {
 /// them to multiple destinations for consumption.
 abstract class MetricsCenter
     implements MetricsSource<BasePoint>, MetricsDestination {
-  List<MetricsSource> otherSources;
-  List<MetricsDestination> otherDestinations;
+  List<MetricsSource> otherSources = [];
+  List<MetricsDestination> otherDestinations = [];
 
   Future<void> periodicallySync() async {
     await Future.wait(otherSources.map(pullFromSource));
@@ -110,10 +110,10 @@ abstract class MetricsCenter
   Future<void> pushToDestination(MetricsDestination destination) async {
     // To dedup, do not send data from that destination. This is important as
     // some destinations are also sources (e.g., a [MetricsCenter]).
-    Iterable<Point> points =
+    List<Point> points =
         (await getUpdatesAfter(dstUpdateTime[destination.id])).where(
       (p) => p.sourceId != destination.id,
-    );
+    ).toList();
     await destination.update(points);
     assert(points.last.sourceTime != null);
     dstUpdateTime[destination.id] = points.last.sourceTime;
@@ -123,7 +123,7 @@ abstract class MetricsCenter
     // To dedup, don't pull any data from other sources. This is important as
     // some sources are also destinations (e.g., [MetricsCenter]), and data from
     // other sources could be pushed there.
-    Iterable<Point> points =
+    List<Point> points =
         (await source.getUpdatesAfter(srcUpdateTime[source.id]))
             .where((p) => p.sourceId == source.id);
     await update(points);

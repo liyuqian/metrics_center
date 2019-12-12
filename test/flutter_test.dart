@@ -6,7 +6,6 @@ import 'package:metrics_center/flutter.dart';
 import 'utility.dart';
 
 @Timeout(const Duration(seconds: 3600))
-
 void main() {
   test('FlutterDestination update does not crash.', () async {
     await _ensureTableExists();
@@ -15,46 +14,50 @@ void main() {
     await dst.update(<BasePoint>[BasePoint(1.0, {}, kFlutterCenterId, null)]);
   });
 
-  // // TODO(liyuqian): figure out why the first write after creating the table
-  // // seems to fail without any error from BigqueryApi.
-  // test('FlutterCenter writes successfully and reads sorted data.', () async {
-  //   final center =
-  //       await FlutterCenter.makeFromCredentialsJson(getGcpCredentialsJson());
-  //   await center.createTableIfNeeded();
-  //   int nowNanos = DateTime.now().microsecondsSinceEpoch * 1000;
-  //   final points = <BasePoint>[
-  //     BasePoint(1.0, {'t': '0', 'y': 'b'}, kFlutterCenterId, nowNanos),
-  //     BasePoint(2.0, {'t': '1'}, kFlutterCenterId, nowNanos + 1),
-  //     BasePoint(5.0, {'t': '4'}, kFlutterCenterId, nowNanos + 4),
-  //     BasePoint(4.0, {'t': '3'}, kFlutterCenterId, nowNanos + 3),
-  //     BasePoint(3.0, {'t': '2'}, kFlutterCenterId, nowNanos + 2),
-  //   ];
-  //   await center.update(points);
+  // TODO(liyuqian): figure out why the first write after creating the table
+  // seems to fail without any error from BigqueryApi.
+  test('FlutterCenter writes successfully and reads sorted data.', () async {
+    final center =
+        await FlutterCenter.makeFromCredentialsJson(getGcpCredentialsJson());
+    await center.createTableIfNeeded();
+    final points = <BasePoint>[
+      BasePoint(1.0, {'t': '0', 'y': 'b'}, kFlutterCenterId, null),
+      BasePoint(2.0, {'t': '1'}, kFlutterCenterId, null),
+      BasePoint(3.0, {'t': '2'}, kFlutterCenterId, null),
+      BasePoint(4.0, {'t': '3'}, kFlutterCenterId, null),
+      BasePoint(5.0, {'t': '4'}, kFlutterCenterId, null),
+    ];
 
-  //   // Sorted points in srcTimeNanos. Method getUpdatesAfter should return
-  //   // points in this order.
-  //   final sortedPoints = <BasePoint>[
-  //     points[0],
-  //     points[1],
-  //     points[4],
-  //     points[3],
-  //     points[2],
-  //   ];
+    final timeBeforeInsert = <DateTime>[];
 
-  //   Iterable<BasePoint> readAll = await center.getUpdatesAfter(nowNanos - 1);
-  //   Iterable<BasePoint> readOne = await center.getUpdatesAfter(nowNanos + 3);
+    const Duration ms1 = Duration(milliseconds: 1);
+    for (int i = 0; i < 5; i += 1) {
+      timeBeforeInsert.add(DateTime.now());
+      await Future.delayed(ms1);
+      center.update(<BasePoint>[points[i]]);
+      final List<BasePoint> readBeforeSync =
+          await center.getUpdatesAfter(timeBeforeInsert[i]);
+      expect(readBeforeSync.length, equals(0));
+      center.synchronize();
+      await Future.delayed(ms1);
+      final List<BasePoint> readAfterSync =
+          await center.getUpdatesAfter(timeBeforeInsert[i]);
+      expect(readAfterSync.length, equals(1));
+    }
 
-  //   expect(readAll.length, equals(5));
-  //   expect(readOne.length, equals(1));
+    List<BasePoint> readAll = await center.getUpdatesAfter(timeBeforeInsert[0]);
 
-  //   for (int i = 0; i < 5; i += 1) {
-  //     expect(readAll.elementAt(i).id, equals(sortedPoints[i].id));
-  //     expect(readAll.elementAt(i).value, equals(sortedPoints[i].value));
-  //   }
-
-  //   expect(readOne.elementAt(0).id, equals(sortedPoints[4].id));
-  //   expect(readOne.elementAt(0).value, equals(sortedPoints[4].value));
-  // });
+    expect(readAll.length, equals(5));
+    for (int i = 0; i < 5; i += 1) {
+      expect(readAll.elementAt(i).id, equals(points[i].id));
+      expect(readAll.elementAt(i).value, equals(points[i].value));
+      final DateTime sourceTime = readAll.elementAt(i).sourceTime;
+      expect(sourceTime, greaterThan(timeBeforeInsert[i]));
+      if (i < 4) {
+        expect(sourceTime, lessThan(timeBeforeInsert[i + 1]));
+      }
+    }
+  });
 
   // TODO test getUpdates and other functions
 }
