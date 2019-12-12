@@ -6,7 +6,7 @@ import 'package:googleapis_auth/auth_io.dart';
 import 'package:metrics_center/base.dart';
 import 'package:metrics_center/gcslock.dart';
 
-import 'base.dart';
+import '../base.dart';
 
 const kValueColName = 'value';
 const kTagsColName = 'tags';
