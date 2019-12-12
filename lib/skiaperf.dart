@@ -35,14 +35,14 @@ import 'base.dart';
 
 class SkiaPoint extends BasePoint {
   SkiaPoint(this.githubRepo, this.gitHash, double value, this._options,
-      this.jsonUrl, int srcTimeNanos)
+      this.jsonUrl, DateTime sourceTime)
       : super(
           value,
           {}
             ..addAll(_options)
             ..addAll({kGithubRepoKey: githubRepo, kGitRevisionKey: gitHash}),
           _options[kSourceIdKey] ?? kSkiaPerfId,
-          srcTimeNanos,
+          sourceTime,
         ) {
     assert(tags[kGithubRepoKey] != null);
     assert(tags[kGitRevisionKey] != null);
@@ -206,7 +206,7 @@ class SkiaPerfGcsAdaptor {
         subResult[kSkiaPerfValueKey],
         subResult[kSkiaPerfOptionsKey],
         info.downloadLink.toString(),
-        info.updated.microsecondsSinceEpoch * 1000,
+        info.updated,
       ));
     }
     return points;

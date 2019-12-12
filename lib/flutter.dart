@@ -10,7 +10,7 @@ import 'base.dart';
 const kValueColName = 'value';
 const kTagsColName = 'tags';
 const kSourceIdColName = 'sourceId';
-const kSrcTimeNanosColName = 'srcTimeNanos';
+const kSourceTimeColName = 'sourceTime';
 
 class BigQueryAdaptor {
   /// The projectId will be inferred from the credentials json.
@@ -62,7 +62,7 @@ class FlutterDestination extends MetricsDestination {
                 .toList(),
             kSourceIdColName: p.sourceId,
             // TODO: set the srcTimeNanos to now instead of copying from the old source.
-            kSrcTimeNanosColName: p.srcTimeNanos,
+            kSourceTimeColName: p.sourceTime,
           }),
       );
     }
@@ -78,9 +78,6 @@ class FlutterDestination extends MetricsDestination {
     if (response.insertErrors != null && response.insertErrors.isNotEmpty) {
       throw InsertError(response.insertErrors);
     }
-
-    // TODO: check that the write actually is successful as the BigQuery may sildently
-    // fail to insert rows.
   }
 
   FlutterDestination._(this._adaptor);
@@ -90,12 +87,12 @@ class FlutterDestination extends MetricsDestination {
 
 class FlutterCenter extends MetricsCenter {
   @override
-  Future<Iterable<BasePoint>> getUpdatesAfter(int timeNanos) async {
+  Future<Iterable<BasePoint>> getUpdatesAfter(DateTime timestamp) async {
     final request = QueryRequest()
       ..query = '''
         SELECT $_cols FROM `$_fullTableName`
-        WHERE $kSrcTimeNanosColName > $timeNanos
-        ORDER BY $kSrcTimeNanosColName ASC
+        WHERE $kSourceTimeColName > $timestamp
+        ORDER BY $kSourceTimeColName ASC
       '''
       ..useLegacySql = false;
     QueryResponse response =
@@ -113,7 +110,7 @@ class FlutterCenter extends MetricsCenter {
     for (TableRow row in response.rows) {
       final value = double.parse(row.f[0].v);
       final String sourceId = row.f[2].v;
-      final srcTimeNanos = int.parse(row.f[3].v);
+      final sourceTime = DateTime.parse(row.f[3].v);
 
       final Map<String, String> tags = {};
       for (Map<String, dynamic> entry in row.f[1].v) {
@@ -122,7 +119,7 @@ class FlutterCenter extends MetricsCenter {
         tags[singleTag.keys.elementAt(0)] = singleTag.values.elementAt(0);
       }
 
-      points.add(BasePoint(value, tags, sourceId, srcTimeNanos));
+      points.add(BasePoint(value, tags, sourceId, sourceTime));
     }
     return points;
   }
@@ -171,9 +168,9 @@ class FlutterCenter extends MetricsCenter {
               ..type = 'STRING'
               ..mode = 'REQUIRED',
             TableFieldSchema()
-              ..name = kSrcTimeNanosColName
-              ..type = 'INTEGER'
-              ..mode = 'REQUIRED',
+              ..name = kSourceTimeColName
+              ..type = 'TIMESTAMP'
+              ..mode = 'NULLABLE',
           ];
 
         await _adaptor.bq.tables
@@ -202,7 +199,7 @@ class FlutterCenter extends MetricsCenter {
       '${_adaptor.projectId}.${_adaptor.datasetId}.${_adaptor.tableId}';
 
   String get _cols =>
-      '$kValueColName, $kTagsColName, $kSourceIdKey, $kSrcTimeNanosColName';
+      '$kValueColName, $kTagsColName, $kSourceIdKey, $kSourceTimeColName';
 }
 
 class InsertError extends Error {

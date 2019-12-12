@@ -32,7 +32,6 @@ void main() {
   const double value1 = 1.0;
   const double value2 = 2.0;
   const double value3 = 3.0;
-  const int dummyTimestamp = 0;
 
   const String frameworkRevision1 = '9011cece2595447eea5dd91adaa241c1c9ef9a33';
   const String frameworkRevision2 = '372fe290e4d4f3f97cbf02a57d235771a9412f10';
@@ -53,7 +52,7 @@ void main() {
       kUnitKey: 's',
     },
     kCocoonId,
-    dummyTimestamp,
+    null,
   );
 
   final cocoonPointRev1Name2 = BasePoint(
@@ -66,7 +65,7 @@ void main() {
       kUnitKey: 's',
     },
     kCocoonId,
-    dummyTimestamp,
+    null,
   );
 
   final cocoonPointRev2Name1 = BasePoint(
@@ -79,7 +78,7 @@ void main() {
       kUnitKey: 's',
     },
     kCocoonId,
-    dummyTimestamp,
+    null,
   );
 
   test('Invalid points convert to null SkiaPoint', () {
@@ -89,7 +88,7 @@ void main() {
         kGitRevisionKey: frameworkRevision1,
       },
       kCocoonId,
-      dummyTimestamp,
+      null,
     );
 
     final noGitRevisionPoint = BasePoint(
@@ -98,7 +97,7 @@ void main() {
         kGithubRepoKey: kFlutterFrameworkRepo,
       },
       kCocoonId,
-      dummyTimestamp,
+      null,
     );
 
     expect(SkiaPoint.fromPoint(noGithubRepoPoint), isNull);
@@ -112,7 +111,7 @@ void main() {
     expect(skiaPoint1.name, equals(name1));
     expect(skiaPoint1.value, equals(cocoonPointRev1Name1.value));
 
-    expect(skiaPoint1.srcTimeNanos, isNull); // Not inserted yet
+    expect(skiaPoint1.sourceTime, isNull); // Not inserted yet
     expect(skiaPoint1.jsonUrl, isNull); // Not inserted yet
   });
 
@@ -221,7 +220,7 @@ void main() {
         points.map((SkiaPoint p) => p.gitHash), [frameworkRevision1]);
     for (int i = 0; i < 2; i += 1) {
       expect(points[0].jsonUrl, startsWith('https://'));
-      expect(points[0].srcTimeNanos, isNotNull);
+      expect(points[0].sourceTime, isNotNull);
     }
   });
 }
