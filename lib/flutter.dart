@@ -17,8 +17,8 @@ class BigQueryAdaptor {
   static Future<BigQueryAdaptor> makeFromCredentialsJson(
     Map<String, dynamic> json, {
     bool insertOnly = false,
-    String datasetId = 'flutter_center',
-    String tableId = 'metrics',
+    String datasetId = 'flutter_metrics_center',
+    String tableId = 'main',
   }) async {
     final bq = BigqueryApi(await clientViaServiceAccount(
         ServiceAccountCredentials.fromJson(json),
@@ -54,12 +54,14 @@ class FlutterDestination extends MetricsDestination {
     for (Point p in points) {
       rows.add(
         TableDataInsertAllRequestRows()
+          ..insertId = p.id
           ..json = JsonObject.fromJson({
             kValueColName: p.value,
             kTagsColName: p.tags.keys
                 .map((String key) => jsonEncode({key: p.tags[key]}))
                 .toList(),
             kSourceIdColName: p.sourceId,
+            // TODO: set the srcTimeNanos to now instead of copying from the old source.
             kSrcTimeNanosColName: p.srcTimeNanos,
           }),
       );
@@ -76,6 +78,9 @@ class FlutterDestination extends MetricsDestination {
     if (response.insertErrors != null && response.insertErrors.isNotEmpty) {
       throw InsertError(response.insertErrors);
     }
+
+    // TODO: check that the write actually is successful as the BigQuery may sildently
+    // fail to insert rows.
   }
 
   FlutterDestination._(this._adaptor);
@@ -87,13 +92,37 @@ class FlutterCenter extends MetricsCenter {
   @override
   Future<Iterable<BasePoint>> getUpdatesAfter(int timeNanos) async {
     final request = QueryRequest()
-      ..query = 'SELECT $_cols FROM $_fullTableName';
+      ..query = '''
+        SELECT $_cols FROM `$_fullTableName`
+        WHERE $kSrcTimeNanosColName > $timeNanos
+        ORDER BY $kSrcTimeNanosColName ASC
+      '''
+      ..useLegacySql = false;
     QueryResponse response =
         await _adaptor.bq.jobs.query(request, _adaptor.projectId);
+
     // TODO(liyuqian): handle response errors
+    assert(response.errors == null || response.errors.isEmpty);
+
+    // The rows can be null if the query has no matched rows
+    if (response.rows == null) {
+      return [];
+    }
+
     final points = <BasePoint>[];
     for (TableRow row in response.rows) {
-      points.add(BasePoint(row.f[0].v, row.f[1].v, row.f[2].v, row.f[3].v));
+      final value = double.parse(row.f[0].v);
+      final String sourceId = row.f[2].v;
+      final srcTimeNanos = int.parse(row.f[3].v);
+
+      final Map<String, String> tags = {};
+      for (Map<String, dynamic> entry in row.f[1].v) {
+        final Map<String, dynamic> singleTag = jsonDecode(entry['v']);
+        assert(singleTag.length == 1);
+        tags[singleTag.keys.elementAt(0)] = singleTag.values.elementAt(0);
+      }
+
+      points.add(BasePoint(value, tags, sourceId, srcTimeNanos));
     }
     return points;
   }
@@ -170,10 +199,10 @@ class FlutterCenter extends MetricsCenter {
   final BigQueryAdaptor _adaptor;
 
   String get _fullTableName =>
-      '${_adaptor.projectId}:${_adaptor.datasetId}.${_adaptor.tableId}';
+      '${_adaptor.projectId}.${_adaptor.datasetId}.${_adaptor.tableId}';
 
   String get _cols =>
-      '$kValueColName, $kTagsColName, $kSourceIdKey $kSrcTimeNanosColName';
+      '$kValueColName, $kTagsColName, $kSourceIdKey, $kSrcTimeNanosColName';
 }
 
 class InsertError extends Error {

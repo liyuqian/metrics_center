@@ -10,6 +10,8 @@ import 'package:metrics_center/skiaperf.dart';
 
 import 'utility.dart';
 
+@Timeout(const Duration(seconds: 3600))
+
 class MockSkiaPerfGcsAdaptor implements SkiaPerfGcsAdaptor {
   @override
   Future<List<SkiaPoint>> readPoints(String objectName) async {
