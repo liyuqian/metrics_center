@@ -21,7 +21,7 @@ abstract class Point {
   DateTime get sourceTime;
 }
 
-/// Base implementation of [Point] used by the [MetricsCenter].
+/// Base implementation of [Point].
 class BasePoint extends Point {
   BasePoint(
     this.value,
