@@ -58,13 +58,6 @@ abstract class MetricDestination {
   ///
   /// Deletion is done by setting [MetricPoint.value] to [double.nan].
   ///
-  /// The destination may not actually delete or update the point with the
-  /// matching id. It can simply append a new point to the database (e.g.,
-  /// [FlutterMetricsCenter] does that with Google BigQuery). Because the
-  /// timestamp of the new point will be set to the latest,
-  /// [FlutterMetricsCenter] will correctly synchronize that new point with all
-  /// destinations.
-  ///
   /// The destination could also ignore some points and not store them. For the
   /// non-ignored points, it should faithfully store the value, tags, raw, and
   /// originId fields. Thus, if this destination is also a source (e.g., a
