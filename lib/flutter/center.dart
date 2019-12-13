@@ -117,7 +117,6 @@ class FlutterCenter extends MetricsCenter {
 
   Future<List<BasePoint>> _getPointsWithinLock(DateTime timestamp) async {
     final Query query = _adaptor.db.query<FlutterCenterPoint>();
-    print(timestamp.microsecondsSinceEpoch);  // TODO TEST
     query.filter('$kSourceTimeMicrosName >', timestamp.microsecondsSinceEpoch);
     List<FlutterCenterPoint> rawPoints = await query.run().toList();
     List<BasePoint> points = [];
@@ -126,7 +125,7 @@ class FlutterCenter extends MetricsCenter {
       for (String singleTag in rawPoint.tags) {
         final Map<String, dynamic> decoded = jsonDecode(singleTag);
         assert(decoded.length == 1);
-        tags.addAll(decoded);
+        tags.addAll(decoded.cast<String, String>());
       }
       points.add(BasePoint(
         rawPoint.value,

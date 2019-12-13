@@ -6,7 +6,6 @@ import 'package:metrics_center/flutter/center.dart';
 import 'utility.dart';
 
 @Timeout(const Duration(seconds: 3600))
-
 void main() {
   test('FlutterDestination update does not crash.', () async {
     FlutterDestination dst = await FlutterDestination.makeFromCredentialsJson(
@@ -19,6 +18,11 @@ void main() {
   test('FlutterCenter writes successfully and reads sorted data.', () async {
     final center =
         await FlutterCenter.makeFromCredentialsJson(getGcpCredentialsJson());
+
+    // Set sourceTimeMicros for existing points so they won't affect this test.
+    center.synchronize(); 
+    await Future.delayed(Duration(seconds: 1));
+
     final points = <BasePoint>[
       BasePoint(1.0, {'t': '0', 'y': 'b'}, kFlutterCenterId, null),
       BasePoint(2.0, {'t': '1'}, kFlutterCenterId, null),
@@ -50,10 +54,15 @@ void main() {
     for (int i = 0; i < 5; i += 1) {
       expect(readAll.elementAt(i).id, equals(points[i].id));
       expect(readAll.elementAt(i).value, equals(points[i].value));
-      final DateTime sourceTime = readAll.elementAt(i).sourceTime;
-      expect(sourceTime, greaterThan(timeBeforeInsert[i]));
+      expect(
+        readAll.elementAt(i).sourceTime.microsecondsSinceEpoch,
+        greaterThan(timeBeforeInsert[i].microsecondsSinceEpoch),
+      );
       if (i < 4) {
-        expect(sourceTime, lessThan(timeBeforeInsert[i + 1]));
+        expect(
+          readAll.elementAt(i).sourceTime.microsecondsSinceEpoch,
+          lessThan(timeBeforeInsert[i + 1].microsecondsSinceEpoch),
+        );
       }
     }
   });
