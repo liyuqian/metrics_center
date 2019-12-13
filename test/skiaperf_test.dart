@@ -107,7 +107,7 @@ void main() {
   test('Correctly convert a base point from cocoon to SkiaPoint', () {
     final skiaPoint1 = SkiaPoint.fromPoint(cocoonPointRev1Name1);
     expect(skiaPoint1, isNotNull);
-    expect(skiaPoint1.sourceId, equals(kCocoonId));
+    expect(skiaPoint1.originId, equals(kCocoonId));
     expect(skiaPoint1.name, equals(name1));
     expect(skiaPoint1.value, equals(cocoonPointRev1Name1.value));
 
@@ -131,7 +131,7 @@ void main() {
         "name": "analyzer_benchmark.flutter_repo_batch_maximum",
         "taskName": "analyzer_benchmark",
         "unit": "s",
-        "sourceId": "cocoon"
+        "originId": "cocoon"
       }
     },
     "analyzer_benchmark.flutter_repo_watch_maximum": {
@@ -140,7 +140,7 @@ void main() {
         "name": "analyzer_benchmark.flutter_repo_watch_maximum",
         "taskName": "analyzer_benchmark",
         "unit": "s",
-        "sourceId": "cocoon"
+        "originId": "cocoon"
       }
     }
   }
@@ -161,7 +161,7 @@ void main() {
             kFlutterFrameworkRepo, frameworkRevision1));
     expect(points.length, equals(2));
     _expectSetMatch<String>(
-        points.map((SkiaPoint p) => p.sourceId), [kCocoonId, kCocoonId]);
+        points.map((SkiaPoint p) => p.originId), [kCocoonId, kCocoonId]);
     _expectSetMatch(points.map((SkiaPoint p) => p.name), [name1, name2]);
     _expectSetMatch(points.map((SkiaPoint p) => p.value), [value1, value2]);
 
@@ -211,7 +211,7 @@ void main() {
     final List<SkiaPoint> points = await skiaPerfGcs.readPoints(testObjectName);
     expect(points.length, equals(2));
     _expectSetMatch<String>(
-        points.map((SkiaPoint p) => p.sourceId), [kCocoonId, kCocoonId]);
+        points.map((SkiaPoint p) => p.originId), [kCocoonId, kCocoonId]);
     _expectSetMatch(points.map((SkiaPoint p) => p.name), [name1, name2]);
     _expectSetMatch(points.map((SkiaPoint p) => p.value), [value1, value2]);
     _expectSetMatch(

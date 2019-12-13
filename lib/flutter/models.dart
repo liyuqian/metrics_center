@@ -15,7 +15,7 @@ class FlutterCenterPoint extends Model {
   List<String> tags;
 
   @StringProperty(required: true)
-  String sourceId;
+  String originId;
 
   @IntProperty(propertyName: kSourceTimeMicrosName)
   int sourceTimeMicros;
@@ -24,7 +24,7 @@ class FlutterCenterPoint extends Model {
     if (from != null) {
       id = from.id;
       value = from.value;
-      sourceId = from.sourceId;
+      originId = from.originId;
       sourceTimeMicros = from.sourceTime?.microsecondsSinceEpoch;
       tags = from.tags.keys
           .map((String key) => jsonEncode({key: from.tags[key]}))

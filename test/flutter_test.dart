@@ -33,10 +33,9 @@ void main() {
 
     final timeBeforeInsert = <DateTime>[];
 
-    const Duration ms1 = Duration(milliseconds: 1);
     for (int i = 0; i < 5; i += 1) {
       timeBeforeInsert.add(DateTime.now());
-      await Future.delayed(ms1);
+      await Future.delayed(Duration(milliseconds: 1));
       await center.update(<BasePoint>[points[i]]);
       final List<BasePoint> readBeforeSync =
           await center.getUpdatesAfter(timeBeforeInsert[i]);

@@ -9,11 +9,6 @@ import '../base.dart';
 import '../flutter/models.dart';
 import '../gcslock.dart';
 
-const kValueColName = 'value';
-const kTagsColName = 'tags';
-const kSourceIdColName = 'sourceId';
-const kSourceTimeColName = 'sourceTime';
-
 class DatastoreAdaptor {
   /// The projectId will be inferred from the credentials json.
   static Future<DatastoreAdaptor> makeFromCredentialsJson(
@@ -131,7 +126,7 @@ class FlutterCenter extends MetricsCenter {
       points.add(BasePoint(
         rawPoint.value,
         tags,
-        rawPoint.sourceId,
+        rawPoint.originId,
         DateTime.fromMicrosecondsSinceEpoch(rawPoint.sourceTimeMicros),
       ));
     }

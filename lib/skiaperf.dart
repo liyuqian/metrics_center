@@ -41,7 +41,7 @@ class SkiaPoint extends BasePoint {
           {}
             ..addAll(_options)
             ..addAll({kGithubRepoKey: githubRepo, kGitRevisionKey: gitHash}),
-          _options[kSourceIdKey] ?? kSkiaPerfId,
+          _options[kOriginIdKey] ?? kSkiaPerfId,
           sourceTime,
         ) {
     assert(tags[kGithubRepoKey] != null);
@@ -66,11 +66,11 @@ class SkiaPoint extends BasePoint {
       );
 
     // Map<String, String> optionsWithSourceId = p.tags.wh;
-    if (optionsWithSourceId[kSourceIdKey] == null) {
-      optionsWithSourceId[kSourceIdKey] = p.sourceId;
+    if (optionsWithSourceId[kOriginIdKey] == null) {
+      optionsWithSourceId[kOriginIdKey] = p.originId;
     }
 
-    assert(optionsWithSourceId[kSourceIdKey] == p.sourceId);
+    assert(optionsWithSourceId[kOriginIdKey] == p.originId);
 
     return SkiaPoint(
         githubRepo, gitHash, p.value, optionsWithSourceId, null, null);

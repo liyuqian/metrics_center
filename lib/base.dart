@@ -13,8 +13,11 @@ abstract class Point {
   /// This id should stay constant even if the [tags.keys] are reordered.
   String get id;
 
-  /// Where this comes from. Used for dedup.
-  String get sourceId;
+  /// Where this point originally comes from. Used for dedup.
+  ///
+  /// This should stay constant as the point is transferred among multiple
+  /// sources and destinations.
+  String get originId;
 
   /// The last modified time of this point in a [MetricsSource]. Can be null if
   /// this point isn't loaded from a source (e.g., it's constructed in memory).
@@ -26,11 +29,11 @@ class BasePoint extends Point {
   BasePoint(
     this.value,
     Map<String, dynamic> tags,
-    this.sourceId,
+    this.originId,
     this.sourceTime,
   )   : assert(value != null),
         assert(tags != null),
-        assert(sourceId != null),
+        assert(originId != null),
         this._tags = SplayTreeMap.from(tags);
 
   @override
@@ -41,10 +44,10 @@ class BasePoint extends Point {
       UnmodifiableMapView<String, String>(_tags);
 
   @override
-  String get id => '$sourceId: $_tags';
+  String get id => '$originId: $_tags';
 
   @override
-  final String sourceId;
+  final String originId;
 
   @override
   final DateTime sourceTime;
@@ -81,10 +84,10 @@ abstract class MetricsDestination {
   ///
   /// The destination could also ignore some points and not store them. For the
   /// non-ignored points, it should faithfully store the value, tags, raw, and
-  /// sourceId fields. Thus, if this destination is also a source (e.g., a
+  /// originId fields. Thus, if this destination is also a source (e.g., a
   /// [MetricsCenter]), then when [getUpdatesAfter] is called on the source, we
   /// should get the points with exactly the same fields that we just updated.
-  /// This is especially important for the sourceId field which is used for
+  /// This is especially important for the originId field which is used for
   /// dedup. Otherwise, there might be an update loop to generate an infinite
   /// amount of duplicate points.
   Future<void> update(List<Point> points);
@@ -112,7 +115,7 @@ abstract class MetricsCenter
     // some destinations are also sources (e.g., a [MetricsCenter]).
     List<Point> points =
         (await getUpdatesAfter(dstUpdateTime[destination.id])).where(
-      (p) => p.sourceId != destination.id,
+      (p) => p.originId != destination.id,
     ).toList();
     await destination.update(points);
     assert(points.last.sourceTime != null);
@@ -125,7 +128,7 @@ abstract class MetricsCenter
     // other sources could be pushed there.
     List<Point> points =
         (await source.getUpdatesAfter(srcUpdateTime[source.id]))
-            .where((p) => p.sourceId == source.id);
+            .where((p) => p.originId == source.id);
     await update(points);
     assert(points.last.sourceTime != null);
     srcUpdateTime[source.id] = points.last.sourceTime;
@@ -154,7 +157,7 @@ abstract class MetricsCenter
 /// Some common tag keys
 const String kGithubRepoKey = 'gitRepo';
 const String kGitRevisionKey = 'gitRevision';
-const String kSourceIdKey = 'sourceId';
+const String kOriginIdKey = 'originId';
 const String kTaskNameKey = 'taskName';
 const String kUnitKey = 'unit';
 const String kNameKey = 'name';
