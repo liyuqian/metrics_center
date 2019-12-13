@@ -1,144 +1,95 @@
-import 'dart:convert';
+import '../common.dart';
 
-import 'package:gcloud/db.dart';
-import 'package:gcloud/src/datastore_impl.dart';
-import 'package:googleapis_auth/auth.dart';
-import 'package:googleapis_auth/auth_io.dart';
-
-import '../base.dart';
-import '../flutter/models.dart';
-import '../gcslock.dart';
-
-class DatastoreAdaptor {
-  /// The projectId will be inferred from the credentials json.
-  static Future<DatastoreAdaptor> makeFromCredentialsJson(
-      Map<String, dynamic> json) async {
-    final client = await clientViaServiceAccount(
-        ServiceAccountCredentials.fromJson(json), DatastoreImpl.SCOPES);
-    final projectId = json['project_id'];
-    return DatastoreAdaptor._(
-        DatastoreDB(DatastoreImpl(client, projectId)), projectId);
-  }
-
-  final String projectId;
-  final DatastoreDB db;
-
-  DatastoreAdaptor._(this.db, this.projectId);
-}
-
-class FlutterDestination extends MetricsDestination {
-  static Future<FlutterDestination> makeFromCredentialsJson(
-      Map<String, dynamic> json) async {
-    final adaptor = await DatastoreAdaptor.makeFromCredentialsJson(json);
-    return FlutterDestination._(adaptor);
-  }
-
-  @override
-  String get id => kFlutterCenterId;
-
-  @override
-  Future<void> update(List<Point> points) async {
-    // TODO make a transaction so we'll have all points commited.
-    final List<FlutterCenterPoint> flutterCenterPoints =
-        points.map((Point p) => FlutterCenterPoint(from: p)).toList();
-    await _adaptor.db.commit(inserts: flutterCenterPoints);
-  }
-
-  FlutterDestination._(this._adaptor);
-
-  final DatastoreAdaptor _adaptor;
-}
+import 'common.dart';
+import 'destination.dart';
+import 'source.dart';
 
 // TODO(liyuqian): issue 1. support batching so we won't run out of memory
-// TODO(liyuqian): issue 2. integrate info/error logging
-// if the list is too large.
-class FlutterCenter extends MetricsCenter {
-  @override
-  String get id => kFlutterCenterId;
-
-  @override
-  Future<List<Point>> getUpdatesAfter(DateTime timestamp) async {
-    List<Point> result;
-    await _lock.protectedRun(() async {
-      result = await _getPointsWithinLock(timestamp);
-    });
-    return result;
-  }
-
-  /// 1. Pull data from other sources.
-  /// 2. Acquire the global lock (in terms of planet earth) for exclusive
-  ///    single-threaded execution below. This ensures that our sourceTime
-  ///    timestamp is increasing.
-  /// 3. Mark rows with NULL sourceTime with the current time.
-  /// 4. Push data from this center to other destinations.
-  /// 5. Release the global lock.
-  ///
-  /// Note that _updateSourceTime triggers an UPDATE request, which is capped by
-  /// BigQuery at 1000 times per day per table. So we won't run this synchronize
-  /// too often. The current synchronize frequency is once per 30 minutes, or 48
-  /// times a day.
-  Future<void> synchronize() async {
-    await Future.wait(otherSources.map(pullFromSource));
-    await _lock.protectedRun(() async {
-      await _updateSourceTime();
-      await Future.wait(otherDestinations.map(pushToDestination));
-    });
-  }
-
-  @override
-  Future<void> update(List<Point> points) async {
-    await _internalDst.update(points);
-  }
-
+// TODO(liyuqian): issue 2. integrate info/error logging if the list is too
+// large.
+class FlutterCenter implements MetricSource, MetricDestination {
   static Future<FlutterCenter> makeFromCredentialsJson(
       Map<String, dynamic> json) async {
     final adaptor = await DatastoreAdaptor.makeFromCredentialsJson(json);
     return FlutterCenter._(adaptor);
   }
 
-  Future<void> _updateSourceTime() async {
-    final setTime = DateTime.now();
+  @override
+  String get id => kFlutterCenterId;
 
-    final Query query = _adaptor.db.query<FlutterCenterPoint>();
-    query.filter('$kSourceTimeMicrosName =', null);
-    List<FlutterCenterPoint> points = await query.run().toList();
-    for (FlutterCenterPoint p in points) {
-      p.sourceTimeMicros = setTime.microsecondsSinceEpoch;
-    }
-    await _adaptor.db.commit(inserts: points);
+  @override
+  Future<void> update(List<MetricPoint> points) => _internalDst.update(points);
 
-    // TODO(liyuqian): check if setTime is less than or equal to the largest
-    // sourceTime in the table. If so, increment setTime.
+  @override
+  Future<List<MetricPoint>> getUpdatesAfter(DateTime timestamp) =>
+      _internalSrc.getUpdatesAfter(timestamp);
+
+  /// Call this method periodically to synchronize metric points among mutliple
+  /// sources and destinations.
+  ///
+  /// This method does
+  /// 1. Pull data from other sources into this center.
+  /// 2. Set sourceTime of the newly added points.
+  /// 3. Push data from this center to other destinations.
+  Future<void> synchronize() async {
+    await Future.wait(_otherSources.map(_pullFromSource));
+    await _internalSrc.updateSourceTime();
+    await Future.wait(_otherDestinations.map(_pushToDestination));
   }
 
-  Future<List<Point>> _getPointsWithinLock(DateTime timestamp) async {
-    final Query query = _adaptor.db.query<FlutterCenterPoint>();
-    query.filter('$kSourceTimeMicrosName >', timestamp.microsecondsSinceEpoch);
-    List<FlutterCenterPoint> rawPoints = await query.run().toList();
-    List<Point> points = [];
-    for (FlutterCenterPoint rawPoint in rawPoints) {
-      final Map<String, String> tags = {};
-      for (String singleTag in rawPoint.tags) {
-        final Map<String, dynamic> decoded = jsonDecode(singleTag);
-        assert(decoded.length == 1);
-        tags.addAll(decoded.cast<String, String>());
-      }
-      points.add(Point(
-        rawPoint.value,
-        tags,
-        rawPoint.originId,
-        DateTime.fromMicrosecondsSinceEpoch(rawPoint.sourceTimeMicros),
-      ));
-    }
-    return points;
+  Future<void> _pushToDestination(MetricDestination destination) async {
+    // To dedup, do not send data from that destination. This is important as
+    // some destinations are also sources (e.g., a [MetricsCenter]).
+    List<MetricPoint> points =
+        (await getUpdatesAfter(_dstUpdateTime[destination.id]))
+            .where(
+              (p) => p.originId != destination.id,
+            )
+            .toList();
+    await destination.update(points);
+    assert(points.last.sourceTime != null);
+    _dstUpdateTime[destination.id] = points.last.sourceTime;
   }
 
-  // TODO also construct with src and dst list
-  FlutterCenter._(this._adaptor)
-      : _internalDst = FlutterDestination._(_adaptor);
+  Future<void> _pullFromSource(MetricSource source) async {
+    // To dedup, don't pull any data from other sources. This is important as
+    // some sources are also destinations (e.g., [MetricsCenter]), and data from
+    // other sources could be pushed there.
+    List<MetricPoint> points =
+        (await source.getUpdatesAfter(_srcUpdateTime[source.id]))
+            .where((p) => p.originId == source.id);
+    await update(points);
+    assert(points.last.sourceTime != null);
+    _srcUpdateTime[source.id] = points.last.sourceTime;
+  }
 
+  // Map from a source id to the largest sourceTime timestamp of any data that
+  // this center has pulled from it.
+  //
+  // The timestamp is generated in the source, and it may have a clock that's
+  // not in sync with the [MetricsCenter]'s clock.
+  //
+  // We only require that the source's clock is strictly increasing between
+  // batches: if [getUpdateAfter] already returned a list of data points with
+  // the largest [sourceTime] = x, then the later updates must have strictly
+  // greater [sourceTime] > x.
+  Map<String, DateTime> _srcUpdateTime;
+
+  // Map from a destination id to the largest sourceTime of any data that this
+  // center has pushed to it.
+  //
+  // This timestamp is generated by [MetricsCenter] (a [MetricSource]) so its
+  // [sourceTime] is strictly increasing between batches.
+  Map<String, DateTime> _dstUpdateTime;
+
+  List<MetricSource> _otherSources = [];
+  List<MetricDestination> _otherDestinations = [];
+
+  final FlutterSource _internalSrc;
   final FlutterDestination _internalDst;
 
-  final DatastoreAdaptor _adaptor;
-  final GcsLock _lock = GcsLock();
+  // TODO also construct with src and dst list
+  FlutterCenter._(DatastoreAdaptor adaptor)
+      : _internalDst = FlutterDestination(adaptor),
+        _internalSrc = FlutterSource(adaptor);
 }

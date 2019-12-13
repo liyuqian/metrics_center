@@ -5,12 +5,10 @@ import 'package:googleapis_auth/auth.dart';
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:test/test.dart';
 
-import 'package:metrics_center/base.dart';
+import 'package:metrics_center/common.dart';
 import 'package:metrics_center/skiaperf.dart';
 
 import 'utility.dart';
-
-@Timeout(Duration(seconds: 3600))
 
 class MockSkiaPerfGcsAdaptor implements SkiaPerfGcsAdaptor {
   @override
@@ -19,8 +17,7 @@ class MockSkiaPerfGcsAdaptor implements SkiaPerfGcsAdaptor {
   }
 
   @override
-  Future<void> writePoints(
-      String objectName, List<SkiaPoint> points) async {
+  Future<void> writePoints(String objectName, List<SkiaPoint> points) async {
     _storage[objectName] = points.toList();
   }
 
@@ -28,6 +25,7 @@ class MockSkiaPerfGcsAdaptor implements SkiaPerfGcsAdaptor {
   Map<String, List<SkiaPoint>> _storage = {};
 }
 
+@Timeout(Duration(seconds: 3600))
 void main() {
   const double value1 = 1.0;
   const double value2 = 2.0;
@@ -42,7 +40,7 @@ void main() {
 
   const String testBucketName = 'personal-test-211504-test';
 
-  final cocoonPointRev1Name1 = Point(
+  final cocoonPointRev1Name1 = MetricPoint(
     value1,
     <String, dynamic>{
       kGithubRepoKey: kFlutterFrameworkRepo,
@@ -55,7 +53,7 @@ void main() {
     null,
   );
 
-  final cocoonPointRev1Name2 = Point(
+  final cocoonPointRev1Name2 = MetricPoint(
     value2,
     <String, dynamic>{
       kGithubRepoKey: kFlutterFrameworkRepo,
@@ -68,7 +66,7 @@ void main() {
     null,
   );
 
-  final cocoonPointRev2Name1 = Point(
+  final cocoonPointRev2Name1 = MetricPoint(
     value3,
     <String, dynamic>{
       kGithubRepoKey: kFlutterFrameworkRepo,
@@ -82,7 +80,7 @@ void main() {
   );
 
   test('Invalid points convert to null SkiaPoint', () {
-    final noGithubRepoPoint = Point(
+    final noGithubRepoPoint = MetricPoint(
       value1,
       <String, dynamic>{
         kGitRevisionKey: frameworkRevision1,
@@ -91,7 +89,7 @@ void main() {
       null,
     );
 
-    final noGitRevisionPoint = Point(
+    final noGitRevisionPoint = MetricPoint(
       value1,
       <String, dynamic>{
         kGithubRepoKey: kFlutterFrameworkRepo,
@@ -154,8 +152,8 @@ void main() {
   test('SkiaPerfDestination correctly updates points', () async {
     final mockGcs = MockSkiaPerfGcsAdaptor();
     final dst = SkiaPerfDestination(mockGcs);
-    await dst.update(<Point>[cocoonPointRev1Name1]);
-    await dst.update(<Point>[cocoonPointRev1Name2]);
+    await dst.update(<MetricPoint>[cocoonPointRev1Name1]);
+    await dst.update(<MetricPoint>[cocoonPointRev1Name2]);
     List<SkiaPoint> points = await mockGcs.readPoints(
         await SkiaPerfGcsAdaptor.comptueObjectName(
             kFlutterFrameworkRepo, frameworkRevision1));
@@ -165,7 +163,7 @@ void main() {
     _expectSetMatch(points.map((SkiaPoint p) => p.name), [name1, name2]);
     _expectSetMatch(points.map((SkiaPoint p) => p.value), [value1, value2]);
 
-    await dst.update(<Point>[cocoonPointRev1Name1, cocoonPointRev2Name1]);
+    await dst.update(<MetricPoint>[cocoonPointRev1Name1, cocoonPointRev2Name1]);
     points = await mockGcs.readPoints(
         await SkiaPerfGcsAdaptor.comptueObjectName(
             kFlutterFrameworkRepo, frameworkRevision2));

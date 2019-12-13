@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:gcloud/storage.dart';
 import 'package:metrics_center/github_helper.dart';
 
-import 'base.dart';
+import 'common.dart';
 
 // Skia Perf Format is a JSON file that looks like:
 
@@ -33,7 +33,7 @@ import 'base.dart';
 //             },
 //     ...
 
-class SkiaPoint extends Point {
+class SkiaPoint extends MetricPoint {
   SkiaPoint(this.githubRepo, this.gitHash, double value, this._options,
       this.jsonUrl, DateTime sourceTime)
       : super(
@@ -51,7 +51,7 @@ class SkiaPoint extends Point {
     assert(_options[kGitRevisionKey] == null);
   }
 
-  factory SkiaPoint.fromPoint(Point p) {
+  factory SkiaPoint.fromPoint(MetricPoint p) {
     final String githubRepo = p.tags[kGithubRepoKey];
     final String gitHash = p.tags[kGitRevisionKey];
     if (githubRepo == null || gitHash == null || p.tags[kNameKey] == null) {
@@ -129,14 +129,14 @@ class SkiaPoint extends Point {
   final Map<String, dynamic> _options;
 }
 
-class SkiaPerfDestination extends MetricsDestination {
+class SkiaPerfDestination extends MetricDestination {
   SkiaPerfDestination(this._gcs);
 
   @override
   String get id => kSkiaPerfId;
 
   @override
-  Future<void> update(List<Point> points) async {
+  Future<void> update(List<MetricPoint> points) async {
     // 1st, create a map based on git repo, git revision, and point id. Git repo
     // and git revision are the top level components of the Skia perf GCS object
     // name.
@@ -175,8 +175,7 @@ class SkiaPerfGcsAdaptor {
   // Used by Skia to differentiate json file format versions.
   static const int version = 1;
 
-  Future<void> writePoints(
-      String objectName, List<SkiaPoint> points) async {
+  Future<void> writePoints(String objectName, List<SkiaPoint> points) async {
     String jsonString = jsonEncode(SkiaPoint.toSkiaPerfJson(points));
     await _gcsBucket.writeBytes(objectName, utf8.encode(jsonString));
   }

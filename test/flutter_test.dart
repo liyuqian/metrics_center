@@ -1,34 +1,35 @@
 import 'package:test/test.dart';
 
-import 'package:metrics_center/base.dart';
+import 'package:metrics_center/common.dart';
+import 'package:metrics_center/flutter/destination.dart';
 import 'package:metrics_center/flutter/center.dart';
 
 import 'utility.dart';
 
-@Timeout(Duration(seconds: 3600))
-
 const String kTestSourceId = 'test';
 
+@Timeout(Duration(seconds: 3600))
 void main() {
   test('FlutterDestination update does not crash.', () async {
     FlutterDestination dst = await FlutterDestination.makeFromCredentialsJson(
         getGcpCredentialsJson());
-    await dst.update(<Point>[Point(1.0, {}, kTestSourceId, null)]);
+    await dst.update(<MetricPoint>[MetricPoint(1.0, {}, kTestSourceId, null)]);
   });
 
+  // The following test exercises both FlutterSource and FlutterDestination
   test('FlutterCenter writes successfully and reads sorted data.', () async {
     final center =
         await FlutterCenter.makeFromCredentialsJson(getGcpCredentialsJson());
 
     // Set sourceTimeMicros for existing points so they won't affect this test.
-    await center.synchronize(); 
+    await center.synchronize();
 
-    final points = <Point>[
-      Point(1.0, {'t': '0', 'y': 'b'}, kTestSourceId, null),
-      Point(2.0, {'t': '1'}, kTestSourceId, null),
-      Point(3.0, {'t': '2'}, kTestSourceId, null),
-      Point(4.0, {'t': '3'}, kTestSourceId, null),
-      Point(5.0, {'t': '4'}, kTestSourceId, null),
+    final points = <MetricPoint>[
+      MetricPoint(1.0, {'t': '0', 'y': 'b'}, kTestSourceId, null),
+      MetricPoint(2.0, {'t': '1'}, kTestSourceId, null),
+      MetricPoint(3.0, {'t': '2'}, kTestSourceId, null),
+      MetricPoint(4.0, {'t': '3'}, kTestSourceId, null),
+      MetricPoint(5.0, {'t': '4'}, kTestSourceId, null),
     ];
 
     final timeBeforeInsert = <DateTime>[];
@@ -36,17 +37,18 @@ void main() {
     for (int i = 0; i < 5; i += 1) {
       timeBeforeInsert.add(DateTime.now());
       await Future.delayed(Duration(milliseconds: 1));
-      await center.update(<Point>[points[i]]);
-      final List<Point> readBeforeSync =
+      await center.update(<MetricPoint>[points[i]]);
+      final List<MetricPoint> readBeforeSync =
           await center.getUpdatesAfter(timeBeforeInsert[i]);
       expect(readBeforeSync.length, equals(0));
       await center.synchronize();
-      final List<Point> readAfterSync =
+      final List<MetricPoint> readAfterSync =
           await center.getUpdatesAfter(timeBeforeInsert[i]);
       expect(readAfterSync.length, equals(1));
     }
 
-    List<Point> readAll = await center.getUpdatesAfter(timeBeforeInsert[0]);
+    List<MetricPoint> readAll =
+        await center.getUpdatesAfter(timeBeforeInsert[0]);
 
     expect(readAll.length, equals(5));
     for (int i = 0; i < 5; i += 1) {

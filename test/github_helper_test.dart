@@ -2,7 +2,6 @@ import 'package:metrics_center/github_helper.dart';
 import 'package:test/test.dart';
 
 @Timeout(Duration(seconds: 3600))
-
 void main() {
   test('GithubHelper gets correct commit date time', () async {
     final GithubHelper helper = GithubHelper();
@@ -21,7 +20,8 @@ void main() {
     expect(helper1, equals(helper2));
   });
 
-  test('GithubHelper can query the same commit 1000 times within 1 second', () async {
+  test('GithubHelper can query the same commit 1000 times within 1 second',
+      () async {
     final DateTime start = DateTime.now();
     for (int i = 0; i < 1000; i += 1) {
       await GithubHelper().getCommitDateTime(
