@@ -45,6 +45,15 @@ abstract class MetricSource<SourcePoint extends MetricPoint> {
   /// with sourceTime = [timestamp] won't be returned.)
   ///
   /// The returned points should be sorted by their srcTimeNanos ascendingly.
+  ///
+  /// [FlutterCenter] requires that the source's clock is strictly increasing
+  /// between batches: if [getUpdateAfter] already returned a list of data
+  /// points with the largest [sourceTime] = x, then the newer points updated
+  /// after this [getUpdateAfter] call must have strictly greater [sourceTime] >
+  /// x. Otherwise, [FlutterCenter] may miss those updates.
+  ///
+  /// See [FlutterSource] for an example of the strict monotonicity on
+  /// [sourceTime].
   Future<List<SourcePoint>> getUpdatesAfter(DateTime timestamp);
 
   /// Unique id of the source. If this source is also a destination, then its
