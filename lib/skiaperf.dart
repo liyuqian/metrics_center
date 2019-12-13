@@ -102,7 +102,7 @@ class SkiaPoint extends BasePoint {
   ///
   /// The list must be non-empty.
   static Map<String, dynamic> toSkiaPerfJson(List<SkiaPoint> points) {
-    assert(points.length > 0);
+    assert(points.isNotEmpty);
     assert(() {
       for (SkiaPoint p in points) {
         if (p.githubRepo != points[0].githubRepo ||

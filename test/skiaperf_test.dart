@@ -10,7 +10,7 @@ import 'package:metrics_center/skiaperf.dart';
 
 import 'utility.dart';
 
-@Timeout(const Duration(seconds: 3600))
+@Timeout(Duration(seconds: 3600))
 
 class MockSkiaPerfGcsAdaptor implements SkiaPerfGcsAdaptor {
   @override
@@ -119,7 +119,7 @@ void main() {
     final p1 = SkiaPoint.fromPoint(cocoonPointRev1Name1);
     final p2 = SkiaPoint.fromPoint(cocoonPointRev1Name2);
 
-    final JsonEncoder encoder = new JsonEncoder.withIndent('  ');
+    final JsonEncoder encoder = JsonEncoder.withIndent('  ');
     expect(encoder.convert(SkiaPoint.toSkiaPerfJson(<SkiaPoint>[p1, p2])),
         equals('''
 {

@@ -43,6 +43,7 @@ class FlutterDestination extends MetricsDestination {
 
   @override
   Future<void> update(List<Point> points) async {
+    // TODO make a transaction so we'll have all points commited.
     final List<FlutterCenterPoint> flutterCenterPoints =
         points.map((Point p) => FlutterCenterPoint(from: p)).toList();
     await _adaptor.db.commit(inserts: flutterCenterPoints);
@@ -83,7 +84,7 @@ class FlutterCenter extends MetricsCenter {
   /// times a day.
   Future<void> synchronize() async {
     await Future.wait(otherSources.map(pullFromSource));
-    _lock.protectedRun(() async {
+    await _lock.protectedRun(() async {
       await _updateSourceTime();
       await Future.wait(otherDestinations.map(pushToDestination));
     });
@@ -109,7 +110,7 @@ class FlutterCenter extends MetricsCenter {
     for (FlutterCenterPoint p in points) {
       p.sourceTimeMicros = setTime.microsecondsSinceEpoch;
     }
-    _adaptor.db.commit(inserts: points);
+    await _adaptor.db.commit(inserts: points);
 
     // TODO(liyuqian): check if setTime is less than or equal to the largest
     // sourceTime in the table. If so, increment setTime.

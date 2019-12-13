@@ -1,7 +1,7 @@
 import 'package:metrics_center/github_helper.dart';
 import 'package:test/test.dart';
 
-@Timeout(const Duration(seconds: 3600))
+@Timeout(Duration(seconds: 3600))
 
 void main() {
   test('GithubHelper gets correct commit date time', () async {
