@@ -42,7 +42,7 @@ void main() {
 
   const String testBucketName = 'personal-test-211504-test';
 
-  final cocoonPointRev1Name1 = BasePoint(
+  final cocoonPointRev1Name1 = Point(
     value1,
     <String, dynamic>{
       kGithubRepoKey: kFlutterFrameworkRepo,
@@ -55,7 +55,7 @@ void main() {
     null,
   );
 
-  final cocoonPointRev1Name2 = BasePoint(
+  final cocoonPointRev1Name2 = Point(
     value2,
     <String, dynamic>{
       kGithubRepoKey: kFlutterFrameworkRepo,
@@ -68,7 +68,7 @@ void main() {
     null,
   );
 
-  final cocoonPointRev2Name1 = BasePoint(
+  final cocoonPointRev2Name1 = Point(
     value3,
     <String, dynamic>{
       kGithubRepoKey: kFlutterFrameworkRepo,
@@ -82,7 +82,7 @@ void main() {
   );
 
   test('Invalid points convert to null SkiaPoint', () {
-    final noGithubRepoPoint = BasePoint(
+    final noGithubRepoPoint = Point(
       value1,
       <String, dynamic>{
         kGitRevisionKey: frameworkRevision1,
@@ -91,7 +91,7 @@ void main() {
       null,
     );
 
-    final noGitRevisionPoint = BasePoint(
+    final noGitRevisionPoint = Point(
       value1,
       <String, dynamic>{
         kGithubRepoKey: kFlutterFrameworkRepo,
@@ -154,8 +154,8 @@ void main() {
   test('SkiaPerfDestination correctly updates points', () async {
     final mockGcs = MockSkiaPerfGcsAdaptor();
     final dst = SkiaPerfDestination(mockGcs);
-    await dst.update(<BasePoint>[cocoonPointRev1Name1]);
-    await dst.update(<BasePoint>[cocoonPointRev1Name2]);
+    await dst.update(<Point>[cocoonPointRev1Name1]);
+    await dst.update(<Point>[cocoonPointRev1Name2]);
     List<SkiaPoint> points = await mockGcs.readPoints(
         await SkiaPerfGcsAdaptor.comptueObjectName(
             kFlutterFrameworkRepo, frameworkRevision1));
@@ -165,7 +165,7 @@ void main() {
     _expectSetMatch(points.map((SkiaPoint p) => p.name), [name1, name2]);
     _expectSetMatch(points.map((SkiaPoint p) => p.value), [value1, value2]);
 
-    await dst.update(<BasePoint>[cocoonPointRev1Name1, cocoonPointRev2Name1]);
+    await dst.update(<Point>[cocoonPointRev1Name1, cocoonPointRev2Name1]);
     points = await mockGcs.readPoints(
         await SkiaPerfGcsAdaptor.comptueObjectName(
             kFlutterFrameworkRepo, frameworkRevision2));

@@ -33,7 +33,7 @@ import 'base.dart';
 //             },
 //     ...
 
-class SkiaPoint extends BasePoint {
+class SkiaPoint extends Point {
   SkiaPoint(this.githubRepo, this.gitHash, double value, this._options,
       this.jsonUrl, DateTime sourceTime)
       : super(

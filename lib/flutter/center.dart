@@ -57,8 +57,8 @@ class FlutterCenter extends MetricsCenter {
   String get id => kFlutterCenterId;
 
   @override
-  Future<List<BasePoint>> getUpdatesAfter(DateTime timestamp) async {
-    List<BasePoint> result;
+  Future<List<Point>> getUpdatesAfter(DateTime timestamp) async {
+    List<Point> result;
     await _lock.protectedRun(() async {
       result = await _getPointsWithinLock(timestamp);
     });
@@ -111,11 +111,11 @@ class FlutterCenter extends MetricsCenter {
     // sourceTime in the table. If so, increment setTime.
   }
 
-  Future<List<BasePoint>> _getPointsWithinLock(DateTime timestamp) async {
+  Future<List<Point>> _getPointsWithinLock(DateTime timestamp) async {
     final Query query = _adaptor.db.query<FlutterCenterPoint>();
     query.filter('$kSourceTimeMicrosName >', timestamp.microsecondsSinceEpoch);
     List<FlutterCenterPoint> rawPoints = await query.run().toList();
-    List<BasePoint> points = [];
+    List<Point> points = [];
     for (FlutterCenterPoint rawPoint in rawPoints) {
       final Map<String, String> tags = {};
       for (String singleTag in rawPoint.tags) {
@@ -123,7 +123,7 @@ class FlutterCenter extends MetricsCenter {
         assert(decoded.length == 1);
         tags.addAll(decoded.cast<String, String>());
       }
-      points.add(BasePoint(
+      points.add(Point(
         rawPoint.value,
         tags,
         rawPoint.originId,

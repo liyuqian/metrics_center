@@ -1,32 +1,8 @@
 import 'dart:collection';
 
 /// Common format of a metric data point
-abstract class Point {
-  /// Can store integer values
-  double get value;
-
-  /// Test name, unit, timestamp, configs, git revision, ..., in sorted order
-  UnmodifiableMapView<String, String> get tags;
-
-  /// Unique identifier for updating existing data point.
-  ///
-  /// This id should stay constant even if the [tags.keys] are reordered.
-  String get id;
-
-  /// Where this point originally comes from. Used for dedup.
-  ///
-  /// This should stay constant as the point is transferred among multiple
-  /// sources and destinations.
-  String get originId;
-
-  /// The last modified time of this point in a [MetricsSource]. Can be null if
-  /// this point isn't loaded from a source (e.g., it's constructed in memory).
-  DateTime get sourceTime;
-}
-
-/// Base implementation of [Point].
-class BasePoint extends Point {
-  BasePoint(
+class Point {
+  Point(
     this.value,
     Map<String, dynamic> tags,
     this.originId,
@@ -36,20 +12,27 @@ class BasePoint extends Point {
         assert(originId != null),
         this._tags = SplayTreeMap.from(tags);
 
-  @override
+  /// Can store integer values
   final double value;
 
-  @override
+  /// Test name, unit, timestamp, configs, git revision, ..., in sorted order
   UnmodifiableMapView<String, String> get tags =>
       UnmodifiableMapView<String, String>(_tags);
 
-  @override
+  /// Unique identifier for updating existing data point.
+  ///
+  /// This id should stay constant even if the [tags.keys] are reordered.
+  /// (Because we are using an ordered SplayTreeMap to generate the id.)
   String get id => '$originId: $_tags';
 
-  @override
+  /// Where this point originally comes from. Used for dedup.
+  ///
+  /// This should stay constant as the point is transferred among multiple
+  /// sources and destinations.
   final String originId;
 
-  @override
+  /// The last modified time of this point in a [MetricsSource]. Can be null if
+  /// this point isn't loaded from a source (e.g., it's constructed in memory).
   final DateTime sourceTime;
 
   final SplayTreeMap<String, String> _tags;
@@ -101,7 +84,7 @@ abstract class MetricsDestination {
 /// A central data warehouse to pull metrics from multiple sources, and send
 /// them to multiple destinations for consumption.
 abstract class MetricsCenter
-    implements MetricsSource<BasePoint>, MetricsDestination {
+    implements MetricsSource<Point>, MetricsDestination {
   List<MetricsSource> otherSources = [];
   List<MetricsDestination> otherDestinations = [];
 

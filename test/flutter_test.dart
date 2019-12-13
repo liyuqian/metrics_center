@@ -13,7 +13,7 @@ void main() {
   test('FlutterDestination update does not crash.', () async {
     FlutterDestination dst = await FlutterDestination.makeFromCredentialsJson(
         getGcpCredentialsJson());
-    await dst.update(<BasePoint>[BasePoint(1.0, {}, kTestSourceId, null)]);
+    await dst.update(<Point>[Point(1.0, {}, kTestSourceId, null)]);
   });
 
   test('FlutterCenter writes successfully and reads sorted data.', () async {
@@ -23,12 +23,12 @@ void main() {
     // Set sourceTimeMicros for existing points so they won't affect this test.
     await center.synchronize(); 
 
-    final points = <BasePoint>[
-      BasePoint(1.0, {'t': '0', 'y': 'b'}, kTestSourceId, null),
-      BasePoint(2.0, {'t': '1'}, kTestSourceId, null),
-      BasePoint(3.0, {'t': '2'}, kTestSourceId, null),
-      BasePoint(4.0, {'t': '3'}, kTestSourceId, null),
-      BasePoint(5.0, {'t': '4'}, kTestSourceId, null),
+    final points = <Point>[
+      Point(1.0, {'t': '0', 'y': 'b'}, kTestSourceId, null),
+      Point(2.0, {'t': '1'}, kTestSourceId, null),
+      Point(3.0, {'t': '2'}, kTestSourceId, null),
+      Point(4.0, {'t': '3'}, kTestSourceId, null),
+      Point(5.0, {'t': '4'}, kTestSourceId, null),
     ];
 
     final timeBeforeInsert = <DateTime>[];
@@ -36,17 +36,17 @@ void main() {
     for (int i = 0; i < 5; i += 1) {
       timeBeforeInsert.add(DateTime.now());
       await Future.delayed(Duration(milliseconds: 1));
-      await center.update(<BasePoint>[points[i]]);
-      final List<BasePoint> readBeforeSync =
+      await center.update(<Point>[points[i]]);
+      final List<Point> readBeforeSync =
           await center.getUpdatesAfter(timeBeforeInsert[i]);
       expect(readBeforeSync.length, equals(0));
       await center.synchronize();
-      final List<BasePoint> readAfterSync =
+      final List<Point> readAfterSync =
           await center.getUpdatesAfter(timeBeforeInsert[i]);
       expect(readAfterSync.length, equals(1));
     }
 
-    List<BasePoint> readAll = await center.getUpdatesAfter(timeBeforeInsert[0]);
+    List<Point> readAll = await center.getUpdatesAfter(timeBeforeInsert[0]);
 
     expect(readAll.length, equals(5));
     for (int i = 0; i < 5; i += 1) {
