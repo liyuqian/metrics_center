@@ -1,4 +1,4 @@
-import 'package:metrics_center/github_helper.dart';
+import 'package:metrics_center/src/github_helper.dart';
 import 'package:test/test.dart';
 
 @Timeout(Duration(seconds: 3600))

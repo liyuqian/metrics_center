@@ -1,8 +1,8 @@
-import '../common.dart';
+import 'package:metrics_center/src/common.dart';
 
-import 'common.dart';
-import 'destination.dart';
-import 'source.dart';
+import 'package:metrics_center/src/flutter/common.dart';
+import 'package:metrics_center/src/flutter/destination.dart';
+import 'package:metrics_center/src/flutter/source.dart';
 
 // TODO(liyuqian): issue 1. support batching so we won't run out of memory
 // TODO(liyuqian): issue 2. integrate info/error logging if the list is too

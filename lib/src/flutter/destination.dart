@@ -1,6 +1,6 @@
-import '../common.dart';
+import 'package:metrics_center/src/common.dart';
 
-import 'common.dart';
+import 'package:metrics_center/src/flutter/common.dart';
 
 /// The internal implementation [MetricDestination] of [FlutterCenter]
 class FlutterDestination extends MetricDestination {

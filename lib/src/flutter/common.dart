@@ -5,7 +5,7 @@ import 'package:gcloud/src/datastore_impl.dart';
 import 'package:googleapis_auth/auth.dart';
 import 'package:googleapis_auth/auth_io.dart';
 
-import '../common.dart';
+import 'package:metrics_center/src/common.dart';
 
 const kSourceTimeMicrosName = 'sourceTimeMicros';
 

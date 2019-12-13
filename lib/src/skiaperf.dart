@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:gcloud/storage.dart';
-import 'package:metrics_center/github_helper.dart';
+import 'package:metrics_center/src/github_helper.dart';
 
-import 'common.dart';
+import 'package:metrics_center/src/common.dart';
 
 // Skia Perf Format is a JSON file that looks like:
 
@@ -33,8 +33,8 @@ import 'common.dart';
 //             },
 //     ...
 
-class SkiaPoint extends MetricPoint {
-  SkiaPoint(this.githubRepo, this.gitHash, double value, this._options,
+class SkiaPerfPoint extends MetricPoint {
+  SkiaPerfPoint(this.githubRepo, this.gitHash, double value, this._options,
       this.jsonUrl, DateTime sourceTime)
       : super(
           value,
@@ -51,7 +51,7 @@ class SkiaPoint extends MetricPoint {
     assert(_options[kGitRevisionKey] == null);
   }
 
-  factory SkiaPoint.fromPoint(MetricPoint p) {
+  factory SkiaPerfPoint.fromPoint(MetricPoint p) {
     final String githubRepo = p.tags[kGithubRepoKey];
     final String gitHash = p.tags[kGitRevisionKey];
     if (githubRepo == null || gitHash == null || p.tags[kNameKey] == null) {
@@ -72,7 +72,7 @@ class SkiaPoint extends MetricPoint {
 
     assert(optionsWithSourceId[kOriginIdKey] == p.originId);
 
-    return SkiaPoint(
+    return SkiaPerfPoint(
         githubRepo, gitHash, p.value, optionsWithSourceId, null, null);
   }
 
@@ -101,10 +101,10 @@ class SkiaPoint extends MetricPoint {
   /// a single json file in the Skia perf format.
   ///
   /// The list must be non-empty.
-  static Map<String, dynamic> toSkiaPerfJson(List<SkiaPoint> points) {
+  static Map<String, dynamic> toSkiaPerfJson(List<SkiaPerfPoint> points) {
     assert(points.isNotEmpty);
     assert(() {
-      for (SkiaPoint p in points) {
+      for (SkiaPerfPoint p in points) {
         if (p.githubRepo != points[0].githubRepo ||
             p.gitHash != points[0].gitHash) {
           return false;
@@ -114,7 +114,7 @@ class SkiaPoint extends MetricPoint {
     }(), 'All points must have same githubRepo and gitHash');
 
     final results = <String, dynamic>{};
-    for (SkiaPoint p in points) {
+    for (SkiaPerfPoint p in points) {
       results[p.name] = p._toSubResultJson();
     }
 
@@ -140,8 +140,8 @@ class SkiaPerfDestination extends MetricDestination {
     // 1st, create a map based on git repo, git revision, and point id. Git repo
     // and git revision are the top level components of the Skia perf GCS object
     // name.
-    final Map<String, Map<String, Map<String, SkiaPoint>>> pointMap = {};
-    for (SkiaPoint p in points.map((x) => SkiaPoint.fromPoint(x))) {
+    final Map<String, Map<String, Map<String, SkiaPerfPoint>>> pointMap = {};
+    for (SkiaPerfPoint p in points.map((x) => SkiaPerfPoint.fromPoint(x))) {
       if (p != null) {
         pointMap[p.githubRepo] ??= {};
         pointMap[p.githubRepo][p.gitHash] ??= {};
@@ -154,9 +154,9 @@ class SkiaPerfDestination extends MetricDestination {
       for (String revision in pointMap[repo].keys) {
         final String objectName =
             await SkiaPerfGcsAdaptor.comptueObjectName(repo, revision);
-        final Map<String, SkiaPoint> newPoints = pointMap[repo][revision];
-        final List<SkiaPoint> oldPoints = await _gcs.readPoints(objectName);
-        for (SkiaPoint p in oldPoints) {
+        final Map<String, SkiaPerfPoint> newPoints = pointMap[repo][revision];
+        final List<SkiaPerfPoint> oldPoints = await _gcs.readPoints(objectName);
+        for (SkiaPerfPoint p in oldPoints) {
           if (newPoints[p.id] == null) {
             newPoints[p.id] = p;
           }
@@ -175,20 +175,21 @@ class SkiaPerfGcsAdaptor {
   // Used by Skia to differentiate json file format versions.
   static const int version = 1;
 
-  Future<void> writePoints(String objectName, List<SkiaPoint> points) async {
-    String jsonString = jsonEncode(SkiaPoint.toSkiaPerfJson(points));
+  Future<void> writePoints(
+      String objectName, List<SkiaPerfPoint> points) async {
+    String jsonString = jsonEncode(SkiaPerfPoint.toSkiaPerfJson(points));
     await _gcsBucket.writeBytes(objectName, utf8.encode(jsonString));
   }
 
   // Return an  empty list if the object does not exist in the GCS bucket.
-  Future<List<SkiaPoint>> readPoints(String objectName) async {
+  Future<List<SkiaPerfPoint>> readPoints(String objectName) async {
     final ObjectInfo info = await _gcsBucket.info(objectName);
     final Stream<List<int>> stream = _gcsBucket.read(objectName);
     final Stream<int> byteStream = stream.expand((x) => x);
     final Map<String, dynamic> decodedJson =
         jsonDecode(utf8.decode(await byteStream.toList()));
 
-    final List<SkiaPoint> points = [];
+    final List<SkiaPerfPoint> points = [];
 
     final String firstGcsNameComponent = objectName.split('/')[0];
     _populateGcsNameToGithubRepoMapIfNeeded();
@@ -199,7 +200,7 @@ class SkiaPerfGcsAdaptor {
     Map<String, dynamic> results = decodedJson[kSkiaPerfResultsKey];
     for (String name in results.keys) {
       final Map<String, dynamic> subResult = results[name];
-      points.add(SkiaPoint(
+      points.add(SkiaPerfPoint(
         githubRepo,
         gitHash,
         subResult[kSkiaPerfValueKey],

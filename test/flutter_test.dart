@@ -1,8 +1,8 @@
 import 'package:test/test.dart';
 
-import 'package:metrics_center/common.dart';
-import 'package:metrics_center/flutter/destination.dart';
-import 'package:metrics_center/flutter/center.dart';
+import 'package:metrics_center/src/common.dart';
+import 'package:metrics_center/src/flutter/destination.dart';
+import 'package:metrics_center/src/flutter/center.dart';
 
 import 'utility.dart';
 
