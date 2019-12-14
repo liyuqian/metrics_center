@@ -5,9 +5,9 @@ class MetricPoint {
   MetricPoint(
     this.value,
     Map<String, dynamic> tags,
-    this.originId,
+    this.originId, [
     this.sourceTime,
-  )   : assert(value != null),
+  ])  : assert(value != null),
         assert(tags != null),
         assert(originId != null),
         this._tags = SplayTreeMap.from(tags);

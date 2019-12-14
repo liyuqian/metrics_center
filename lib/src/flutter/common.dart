@@ -9,8 +9,8 @@ import 'package:metrics_center/src/common.dart';
 
 const kSourceTimeMicrosName = 'sourceTimeMicros';
 
-@Kind(name: 'FlutterCenterPoint', idType: IdType.String)
-class FlutterCenterPoint extends Model {
+@Kind(name: 'MetricPoint', idType: IdType.String)
+class MetricPointModel extends Model {
   @DoubleProperty(required: true, indexed: false)
   double value;
 
@@ -23,12 +23,15 @@ class FlutterCenterPoint extends Model {
   @IntProperty(propertyName: kSourceTimeMicrosName)
   int sourceTimeMicros;
 
-  FlutterCenterPoint({MetricPoint from}) {
+  MetricPointModel({MetricPoint from}) {
     if (from != null) {
       id = from.id;
       value = from.value;
       originId = from.originId;
-      sourceTimeMicros = from.sourceTime?.microsecondsSinceEpoch;
+      // Explicitly set sourceTimeMicros to null because the sourceTimeMicros
+      // should be set by FlutterSource, instead of copying from the
+      // MetricPoint.
+      sourceTimeMicros = null;
       tags = from.tags.keys
           .map((String key) => jsonEncode({key: from.tags[key]}))
           .toList();
@@ -42,13 +45,11 @@ class DatastoreAdaptor {
       Map<String, dynamic> json) async {
     final client = await clientViaServiceAccount(
         ServiceAccountCredentials.fromJson(json), DatastoreImpl.SCOPES);
-    final projectId = json['project_id'];
     return DatastoreAdaptor._(
-        DatastoreDB(DatastoreImpl(client, projectId)), projectId);
+        DatastoreDB(DatastoreImpl(client, json['project_id'])));
   }
 
-  final String projectId;
   final DatastoreDB db;
 
-  DatastoreAdaptor._(this.db, this.projectId);
+  DatastoreAdaptor._(this.db);
 }

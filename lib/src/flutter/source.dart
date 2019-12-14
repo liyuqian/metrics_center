@@ -40,10 +40,10 @@ class FlutterSource extends MetricSource {
   Future<void> _updateSourceTimeWithinLock() async {
     final setTime = DateTime.now();
 
-    final Query query = _adaptor.db.query<FlutterCenterPoint>();
+    final Query query = _adaptor.db.query<MetricPointModel>();
     query.filter('$kSourceTimeMicrosName =', null);
-    List<FlutterCenterPoint> points = await query.run().toList();
-    for (FlutterCenterPoint p in points) {
+    List<MetricPointModel> points = await query.run().toList();
+    for (MetricPointModel p in points) {
       p.sourceTimeMicros = setTime.microsecondsSinceEpoch;
     }
 
@@ -54,11 +54,11 @@ class FlutterSource extends MetricSource {
   }
 
   Future<List<MetricPoint>> _getPointsWithinLock(DateTime timestamp) async {
-    final Query query = _adaptor.db.query<FlutterCenterPoint>();
+    final Query query = _adaptor.db.query<MetricPointModel>();
     query.filter('$kSourceTimeMicrosName >', timestamp.microsecondsSinceEpoch);
-    List<FlutterCenterPoint> rawPoints = await query.run().toList();
+    List<MetricPointModel> rawPoints = await query.run().toList();
     List<MetricPoint> points = [];
-    for (FlutterCenterPoint rawPoint in rawPoints) {
+    for (MetricPointModel rawPoint in rawPoints) {
       final Map<String, String> tags = {};
       for (String singleTag in rawPoint.tags) {
         final Map<String, dynamic> decoded = jsonDecode(singleTag);

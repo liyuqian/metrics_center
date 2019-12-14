@@ -50,7 +50,6 @@ void main() {
       kUnitKey: 's',
     },
     kCocoonId,
-    null,
   );
 
   final cocoonPointRev1Name2 = MetricPoint(
@@ -63,7 +62,6 @@ void main() {
       kUnitKey: 's',
     },
     kCocoonId,
-    null,
   );
 
   final cocoonPointRev2Name1 = MetricPoint(
@@ -76,7 +74,6 @@ void main() {
       kUnitKey: 's',
     },
     kCocoonId,
-    null,
   );
 
   test('Invalid points convert to null SkiaPoint', () {
@@ -86,7 +83,6 @@ void main() {
         kGitRevisionKey: frameworkRevision1,
       },
       kCocoonId,
-      null,
     );
 
     final noGitRevisionPoint = MetricPoint(
@@ -95,7 +91,6 @@ void main() {
         kGithubRepoKey: kFlutterFrameworkRepo,
       },
       kCocoonId,
-      null,
     );
 
     expect(SkiaPerfPoint.fromPoint(noGithubRepoPoint), isNull);

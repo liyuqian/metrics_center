@@ -1,3 +1,4 @@
+import 'package:gcloud/db.dart';
 import 'package:metrics_center/src/common.dart';
 
 import 'package:metrics_center/src/flutter/common.dart';
@@ -7,23 +8,7 @@ import 'package:metrics_center/src/flutter/source.dart';
 // TODO(liyuqian): issue 1. support batching so we won't run out of memory
 // TODO(liyuqian): issue 2. integrate info/error logging if the list is too
 // large.
-class FlutterCenter implements MetricSource, MetricDestination {
-  static Future<FlutterCenter> makeFromCredentialsJson(
-      Map<String, dynamic> json) async {
-    final adaptor = await DatastoreAdaptor.makeFromCredentialsJson(json);
-    return FlutterCenter._(adaptor);
-  }
-
-  @override
-  String get id => kFlutterCenterId;
-
-  @override
-  Future<void> update(List<MetricPoint> points) => _internalDst.update(points);
-
-  @override
-  Future<List<MetricPoint>> getUpdatesAfter(DateTime timestamp) =>
-      _internalSrc.getUpdatesAfter(timestamp);
-
+class FlutterCenter {
   /// Call this method periodically to synchronize metric points among mutliple
   /// sources and destinations.
   ///
@@ -33,19 +18,59 @@ class FlutterCenter implements MetricSource, MetricDestination {
   /// 3. Push data from this center to other destinations.
   Future<void> synchronize() async {
     await Future.wait(_otherSources.map(_pullFromSource));
-    await _internalSrc.updateSourceTime();
+    await _flutterSrc.updateSourceTime();
     await Future.wait(_otherDestinations.map(_pushToDestination));
+  }
+
+  FlutterCenter(
+    DatastoreAdaptor adaptor, {
+    List<MetricSource> otherSources,
+    List<MetricDestination> otherDestinations,
+    Map<String, DateTime> srcUpdateTime,
+    Map<String, DateTime> dstUpdateTime,
+  })  : _flutterDst = FlutterDestination(adaptor),
+        _flutterSrc = FlutterSource(adaptor),
+        _otherSources = otherSources,
+        _otherDestinations = otherDestinations,
+        _srcUpdateTime = srcUpdateTime,
+        _dstUpdateTime = dstUpdateTime {
+    _otherSources ??= [];
+
+    // TODO(liyuqian): add SkiaPerfDestination as a default other destination
+    // if the constructor doesn't specify one
+    _otherDestinations ??= [];
+
+    _srcUpdateTime ??= {};
+    _dstUpdateTime ??= {};
+
+    final DateTime kSmallestTime = DateTime.fromMicrosecondsSinceEpoch(0);
+    for (MetricSource src in _otherSources) {
+      _srcUpdateTime[src.id] ??= kSmallestTime;
+    }
+    for (MetricDestination dst in _otherDestinations) {
+      _dstUpdateTime[dst.id] ??= kSmallestTime;
+    }
+  }
+
+  static Future<FlutterCenter> makeFromCredentialsJson(
+      Map<String, dynamic> json) async {
+    final adaptor = await DatastoreAdaptor.makeFromCredentialsJson(json);
+    // TODO load update time
+    return FlutterCenter(adaptor);
   }
 
   Future<void> _pushToDestination(MetricDestination destination) async {
     // To dedup, do not send data from that destination. This is important as
     // some destinations are also sources (e.g., a [MetricsCenter]).
     List<MetricPoint> points =
-        (await getUpdatesAfter(_dstUpdateTime[destination.id]))
+        (await _flutterSrc.getUpdatesAfter(_dstUpdateTime[destination.id]))
             .where(
               (p) => p.originId != destination.id,
             )
             .toList();
+    if (points.isEmpty) {
+      return;
+    }
     await destination.update(points);
     assert(points.last.sourceTime != null);
     _dstUpdateTime[destination.id] = points.last.sourceTime;
@@ -57,8 +82,11 @@ class FlutterCenter implements MetricSource, MetricDestination {
     // other sources could be pushed there.
     List<MetricPoint> points =
         (await source.getUpdatesAfter(_srcUpdateTime[source.id]))
-            .where((p) => p.originId == source.id);
-    await update(points);
+            .where((p) => p.originId == source.id).toList();
+    if (points.isEmpty) {
+      return;
+    }
+    await _flutterDst.update(points);
     assert(points.last.sourceTime != null);
     _srcUpdateTime[source.id] = points.last.sourceTime;
   }
@@ -82,14 +110,28 @@ class FlutterCenter implements MetricSource, MetricDestination {
   // [sourceTime] is strictly increasing between batches.
   Map<String, DateTime> _dstUpdateTime;
 
-  List<MetricSource> _otherSources = [];
-  List<MetricDestination> _otherDestinations = [];
+  List<MetricSource> _otherSources;
+  List<MetricDestination> _otherDestinations;
 
-  final FlutterSource _internalSrc;
-  final FlutterDestination _internalDst;
+  final FlutterSource _flutterSrc;
+  final FlutterDestination _flutterDst;
+}
 
-  // TODO also construct with src and dst list
-  FlutterCenter._(DatastoreAdaptor adaptor)
-      : _internalDst = FlutterDestination(adaptor),
-        _internalSrc = FlutterSource(adaptor);
+@Kind(name: 'UpdateTime', idType: IdType.String)
+class UpdateTimeModel extends Model {
+  @IntProperty(
+      propertyName: kSourceTimeMicrosName, required: true, indexed: false)
+  int sourceTimeMicros;
+
+  UpdateTimeModel();
+
+  UpdateTimeModel.srcUpdateTime(String srcId, DateTime t) {
+    id = 'src: $srcId';
+    sourceTimeMicros = t.microsecondsSinceEpoch;
+  }
+
+  UpdateTimeModel.dstUpdateTime(String dstId, DateTime t) {
+    id = 'dst: $dstId';
+    sourceTimeMicros = t.microsecondsSinceEpoch;
+  }
 }

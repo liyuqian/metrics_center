@@ -18,8 +18,8 @@ class FlutterDestination extends MetricDestination {
   @override
   Future<void> update(List<MetricPoint> points) async {
     // TODO make a transaction so we'll have all points commited.
-    final List<FlutterCenterPoint> flutterCenterPoints =
-        points.map((MetricPoint p) => FlutterCenterPoint(from: p)).toList();
+    final List<MetricPointModel> flutterCenterPoints =
+        points.map((MetricPoint p) => MetricPointModel(from: p)).toList();
     await _adaptor.db.commit(inserts: flutterCenterPoints);
   }
 
