@@ -25,13 +25,13 @@ class FlutterCenter {
   }
 
   FlutterCenter(
-    DatastoreAdaptor adaptor, {
+    DatastoreDB db, {
     List<MetricSource> otherSources,
     List<MetricDestination> otherDestinations,
     Map<String, DateTime> srcUpdateTime,
     Map<String, DateTime> dstUpdateTime,
-  })  : _flutterDst = FlutterDestination(adaptor),
-        _flutterSrc = FlutterSource(adaptor),
+  })  : _flutterDst = FlutterDestination(db),
+        _flutterSrc = FlutterSource(db),
         _otherSources = otherSources,
         _otherDestinations = otherDestinations,
         _srcUpdateTime = srcUpdateTime,
@@ -56,9 +56,9 @@ class FlutterCenter {
 
   static Future<FlutterCenter> makeFromCredentialsJson(
       Map<String, dynamic> json) async {
-    final adaptor = await DatastoreAdaptor.makeFromCredentialsJson(json);
+    final db = await datastoreFromCredentialsJson(json);
     // TODO load update time
-    return FlutterCenter(adaptor);
+    return FlutterCenter(db);
   }
 
   Future<void> _pushToDestination(MetricDestination destination) async {
@@ -84,7 +84,8 @@ class FlutterCenter {
     // other sources could be pushed there.
     List<MetricPoint> points =
         (await source.getUpdatesAfter(_srcUpdateTime[source.id]))
-            .where((p) => p.originId == source.id).toList();
+            .where((p) => p.originId == source.id)
+            .toList();
     if (points.isEmpty) {
       return;
     }

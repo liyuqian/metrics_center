@@ -39,18 +39,9 @@ class MetricPointModel extends Model {
   }
 }
 
-// TODO Remove DatastoreAdaptor and just use DatastoreDB
-class DatastoreAdaptor {
-  /// The projectId will be inferred from the credentials json.
-  static Future<DatastoreAdaptor> makeFromCredentialsJson(
-      Map<String, dynamic> json) async {
-    final client = await clientViaServiceAccount(
-        ServiceAccountCredentials.fromJson(json), DatastoreImpl.SCOPES);
-    return DatastoreAdaptor._(
-        DatastoreDB(DatastoreImpl(client, json['project_id'])));
-  }
-
-  final DatastoreDB db;
-
-  DatastoreAdaptor._(this.db);
+Future<DatastoreDB> datastoreFromCredentialsJson(
+    Map<String, dynamic> json) async {
+  final client = await clientViaServiceAccount(
+      ServiceAccountCredentials.fromJson(json), DatastoreImpl.SCOPES);
+  return DatastoreDB(DatastoreImpl(client, json['project_id']));
 }

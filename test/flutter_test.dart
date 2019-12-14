@@ -19,10 +19,9 @@ void main() {
   });
 
   test('Exercise both FlutterSource and FlutterDestination.', () async {
-    final adaptor =
-        await DatastoreAdaptor.makeFromCredentialsJson(getGcpCredentialsJson());
-    final flutterSrc = FlutterSource(adaptor);
-    final flutterDst = FlutterDestination(adaptor);
+    final db = await datastoreFromCredentialsJson(getGcpCredentialsJson());
+    final flutterSrc = FlutterSource(db);
+    final flutterDst = FlutterDestination(db);
 
     // Set sourceTime for existing points so they won't affect this test. The
     // test should use a test specific GCP project or a mock datastore to ensure
@@ -74,8 +73,7 @@ void main() {
   });
 
   test('FlutterCenter synchronize works.', () async {
-    final adaptor =
-        await DatastoreAdaptor.makeFromCredentialsJson(getGcpCredentialsJson());
+    final db = await datastoreFromCredentialsJson(getGcpCredentialsJson());
 
     final mockSource = MockSource();
     final mockDestination = MockDestination();
@@ -84,13 +82,13 @@ void main() {
     final DateTime t0 = DateTime.now();
 
     final center = FlutterCenter(
-      adaptor,
+      db,
       otherSources: [mockSource],
       otherDestinations: [mockDestination, mockDestination2],
       srcUpdateTime: {mockSource.id: t0},
       dstUpdateTime: {mockDestination.id: t0, mockDestination2.id: t0},
     );
-    final flutterSrc = FlutterSource(adaptor);
+    final flutterSrc = FlutterSource(db);
 
     // Set sourceTime for existing points so they won't affect this test. The
     // test should use a test specific GCP project or a mock datastore to ensure
@@ -122,7 +120,7 @@ void main() {
     expect(mockDestination.updateCount, equals(0));
     expect(mockDestination2.updateCount, equals(1));
 
-    final flutterDst = FlutterDestination(adaptor);
+    final flutterDst = FlutterDestination(db);
     await flutterDst.update([MetricPoint(1.0, {}, kTestSourceId)]);
     await center.synchronize();
 

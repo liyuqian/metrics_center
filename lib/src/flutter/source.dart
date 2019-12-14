@@ -9,7 +9,7 @@ import 'package:metrics_center/src/flutter/common.dart';
 
 /// The internal implementation [MetricSource] of [FlutterCenter]
 class FlutterSource extends MetricSource {
-  FlutterSource(this._adaptor);
+  FlutterSource(this._db);
 
   @override
   String get id => kFlutterCenterId;
@@ -40,7 +40,7 @@ class FlutterSource extends MetricSource {
   Future<void> _updateSourceTimeWithinLock() async {
     final setTime = DateTime.now();
 
-    final Query query = _adaptor.db.query<MetricPointModel>();
+    final Query query = _db.query<MetricPointModel>();
     query.filter('$kSourceTimeMicrosName =', null);
     List<MetricPointModel> points = await query.run().toList();
     for (MetricPointModel p in points) {
@@ -50,11 +50,11 @@ class FlutterSource extends MetricSource {
     // It's Ok to not have a transaction here and only have only
     // part of points being updated.
     // TODO add logging for failures.
-    await _adaptor.db.commit(inserts: points);
+    await _db.commit(inserts: points);
   }
 
   Future<List<MetricPoint>> _getPointsWithinLock(DateTime timestamp) async {
-    final Query query = _adaptor.db.query<MetricPointModel>();
+    final Query query = _db.query<MetricPointModel>();
     query.filter('$kSourceTimeMicrosName >', timestamp.microsecondsSinceEpoch);
     List<MetricPointModel> rawPoints = await query.run().toList();
     List<MetricPoint> points = [];
@@ -75,6 +75,6 @@ class FlutterSource extends MetricSource {
     return points;
   }
 
-  final DatastoreAdaptor _adaptor;
+  final DatastoreDB _db;
   final GcsLock _lock = GcsLock();
 }

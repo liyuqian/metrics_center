@@ -5,12 +5,11 @@ import 'package:metrics_center/src/flutter/common.dart';
 
 /// The internal implementation [MetricDestination] of [FlutterCenter]
 class FlutterDestination extends MetricDestination {
-  FlutterDestination(this._adaptor);
+  FlutterDestination(this._db);
 
   static Future<FlutterDestination> makeFromCredentialsJson(
       Map<String, dynamic> json) async {
-    final adaptor = await DatastoreAdaptor.makeFromCredentialsJson(json);
-    return FlutterDestination(adaptor);
+    return FlutterDestination(await datastoreFromCredentialsJson(json));
   }
 
   @override
@@ -20,13 +19,13 @@ class FlutterDestination extends MetricDestination {
   Future<void> update(List<MetricPoint> points) async {
     final List<MetricPointModel> flutterCenterPoints =
         points.map((MetricPoint p) => MetricPointModel(from: p)).toList();
-    await _adaptor.db.withTransaction((Transaction tx) async {
+    await _db.withTransaction((Transaction tx) async {
       tx.queueMutations(inserts: flutterCenterPoints);
       await tx.commit();
     });
   }
 
-  final DatastoreAdaptor _adaptor;
+  final DatastoreDB _db;
 }
 
 // TODO Convenience class FlutterEngineMetricPoint and FlutterFrameworkMetricPoint
