@@ -16,10 +16,12 @@ class FlutterCenter {
   /// 1. Pull data from other sources into this center.
   /// 2. Set sourceTime of the newly added points.
   /// 3. Push data from this center to other destinations.
+  /// 4. Write the updated srcUpdateTime and dstUpdateTime into Datastore.
   Future<void> synchronize() async {
     await Future.wait(_otherSources.map(_pullFromSource));
     await _flutterSrc.updateSourceTime();
     await Future.wait(_otherDestinations.map(_pushToDestination));
+    // TODO Write the updated srcUpdateTime and dstUpdateTime into Datastore.
   }
 
   FlutterCenter(

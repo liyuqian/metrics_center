@@ -49,7 +49,7 @@ class FlutterSource extends MetricSource {
 
     // It's Ok to not have a transaction here and only have only
     // part of points being updated.
-    // TODO(liyuqian): add logging for failures.
+    // TODO add logging for failures.
     await _adaptor.db.commit(inserts: points);
   }
 

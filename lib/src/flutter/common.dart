@@ -39,6 +39,7 @@ class MetricPointModel extends Model {
   }
 }
 
+// TODO Remove DatastoreAdaptor and just use DatastoreDB
 class DatastoreAdaptor {
   /// The projectId will be inferred from the credentials json.
   static Future<DatastoreAdaptor> makeFromCredentialsJson(
