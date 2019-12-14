@@ -1,3 +1,8 @@
+@Timeout(Duration(seconds: 3600))
+
+import 'dart:math';
+
+import 'package:gcloud/db.dart';
 import 'package:metrics_center/src/flutter/center.dart';
 import 'package:test/test.dart';
 
@@ -10,7 +15,6 @@ import 'utility.dart';
 
 const String kTestSourceId = 'test';
 
-@Timeout(Duration(seconds: 3600))
 void main() {
   test('FlutterDestination update does not crash.', () async {
     FlutterDestination dst = await FlutterDestination.makeFromCredentialsJson(
@@ -75,18 +79,18 @@ void main() {
   test('FlutterCenter synchronize works.', () async {
     final db = await datastoreFromCredentialsJson(getGcpCredentialsJson());
 
-    final mockSource = MockSource();
-    final mockDestination = MockDestination();
-    final mockDestination2 = MockDestination2();
+    final twoPointSource = TwoPointSource();
+    final countDestination = CountDestination();
+    final countDestination2 = CountDestination2();
 
     final DateTime t0 = DateTime.now();
 
     final center = FlutterCenter(
       db,
-      otherSources: [mockSource],
-      otherDestinations: [mockDestination, mockDestination2],
-      srcUpdateTime: {mockSource.id: t0},
-      dstUpdateTime: {mockDestination.id: t0, mockDestination2.id: t0},
+      otherSources: [twoPointSource],
+      otherDestinations: [countDestination, countDestination2],
+      srcUpdateTime: {twoPointSource.id: t0},
+      dstUpdateTime: {countDestination.id: t0, countDestination2.id: t0},
     );
     final flutterSrc = FlutterSource(db);
 
@@ -99,13 +103,13 @@ void main() {
     // The MockSource always returns 2 points, one with originId = kMockId, and
     // one with a different id.
     expect(
-      (await mockSource.getUpdatesAfter(DateTime.now())).length,
+      (await twoPointSource.getUpdatesAfter(DateTime.now())).length,
       equals(2),
     );
 
     // Initial check of 0
-    expect(mockDestination.updateCount, equals(0));
-    expect(mockDestination2.updateCount, equals(0));
+    expect(countDestination.updateCount, equals(0));
+    expect(countDestination2.updateCount, equals(0));
 
     await center.synchronize();
     final List<MetricPoint> pointsAfterT0 =
@@ -117,8 +121,8 @@ void main() {
 
     // mockDestination receives no update due to dedup, but mockDestination2
     // receives one because its id is different from mockDestination's.
-    expect(mockDestination.updateCount, equals(0));
-    expect(mockDestination2.updateCount, equals(1));
+    expect(countDestination.updateCount, equals(0));
+    expect(countDestination2.updateCount, equals(1));
 
     final flutterDst = FlutterDestination(db);
     await flutterDst.update([MetricPoint(1.0, {}, kTestSourceId)]);
@@ -126,17 +130,77 @@ void main() {
 
     // mockDestination should receive one update from the FlutterDestination
     // update above.
-    expect(mockDestination.updateCount, equals(1));
+    expect(countDestination.updateCount, equals(1));
 
     // mockDestination2 should receive two more updates: 1 from
     // FlutterDestination, 1 from mockSource
-    expect(mockDestination2.updateCount, equals(3));
+    expect(countDestination2.updateCount, equals(3));
+  });
+
+  test('FlutterCenter loads and writes src/dstUpdateTime.', () async {
+    final db = await datastoreFromCredentialsJson(getGcpCredentialsJson());
+
+    final timedSource = TimedSource();
+    final timedDestination = TimedDestination();
+    final flutterSource = TimedFlutterSource(db);
+
+    final t0 = DateTime.now();
+
+    {
+      final center = FlutterCenter(
+        db,
+        flutterSource: flutterSource,
+        otherSources: [timedSource],
+        otherDestinations: [timedDestination],
+      );
+      await Future.delayed(Duration(milliseconds: 1));
+      timedSource.sourceTime = DateTime.now();
+      await center.synchronize();
+
+      // In these first tests, (1) timedSource.queryTime should be equal to
+      // _srcUpdateTime[kMockId] and it should be less than t0; (2)
+      // flutterSource.queryTime should be equal to _dstUpdateTime[kMockId] and
+      // it should be less than t0.
+      expect(
+        timedSource.queryTime.microsecondsSinceEpoch,
+        lessThan(t0.microsecondsSinceEpoch),
+      );
+      expect(
+        flutterSource.queryTime.microsecondsSinceEpoch,
+        lessThan(t0.microsecondsSinceEpoch),
+      );
+    }
+
+    {
+      final center = FlutterCenter(
+        db,
+        flutterSource: flutterSource,
+        otherSources: [timedSource],
+        otherDestinations: [timedDestination],
+      );
+      await Future.delayed(Duration(milliseconds: 1));
+      timedSource.sourceTime = DateTime.now();
+      await center.synchronize();
+
+      // In these first tests, (1) timedSource.queryTime should be equal to
+      // _srcUpdateTime[kMockId] and it should be greater than t0; (2)
+      // flutterSource.queryTime should be equal to _dstUpdateTime[kMockId] and
+      // it should be greater than t0.
+      expect(
+        timedSource.queryTime.microsecondsSinceEpoch,
+        lessThan(t0.microsecondsSinceEpoch),
+      );
+      expect(
+        flutterSource.queryTime.microsecondsSinceEpoch,
+        lessThan(t0.microsecondsSinceEpoch),
+      );
+     }
   });
 }
 
 const String kMockId = 'mock';
 
-class MockSource extends MetricSource {
+class TwoPointSource extends MetricSource {
   @override
   Future<List<MetricPoint>> getUpdatesAfter(DateTime timestamp) async {
     return <MetricPoint>[
@@ -151,7 +215,8 @@ class MockSource extends MetricSource {
   static final _kTiny = Duration(microseconds: 1);
 }
 
-class MockDestination extends MetricDestination {
+// Count how many points have been updated.
+class CountDestination extends MetricDestination {
   @override
   String get id => kMockId;
 
@@ -164,7 +229,7 @@ class MockDestination extends MetricDestination {
 }
 
 // Have a different id so this can receive updates from MockSrouce.
-class MockDestination2 extends MockDestination {
+class CountDestination2 extends CountDestination {
   @override
   String get id => '$kMockId 2';
 
@@ -172,4 +237,43 @@ class MockDestination2 extends MockDestination {
   Future<void> update(List<MetricPoint> points) async {
     updateCount += points.length;
   }
+}
+
+class TimedSource extends MetricSource {
+  @override
+  String get id => kMockId;
+
+  @override
+  Future<List<MetricPoint>> getUpdatesAfter(DateTime timestamp) async {
+    queryTime = timestamp;
+    return [MetricPoint(0, {}, kMockId, sourceTime)];
+  }
+
+  DateTime sourceTime;
+  DateTime queryTime;
+}
+
+class TimedDestination extends MetricDestination {
+  @override
+  String get id => kMockId;
+
+  @override
+  Future<void> update(List<MetricPoint> points) async {
+    queryTime = DateTime.fromMicrosecondsSinceEpoch(
+        points.map((x) => x.sourceTime.microsecondsSinceEpoch).reduce(max));
+  }
+
+  DateTime queryTime;
+}
+
+class TimedFlutterSource extends FlutterSource {
+  TimedFlutterSource(DatastoreDB db) : super(db);
+
+  @override
+  Future<List<MetricPoint>> getUpdatesAfter(DateTime timestamp) {
+    queryTime = timestamp;
+    return super.getUpdatesAfter(timestamp);
+  }
+
+  DateTime queryTime;
 }

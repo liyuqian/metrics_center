@@ -1,3 +1,5 @@
+@Timeout(Duration(seconds: 3600))
+
 import 'dart:convert';
 
 import 'package:gcloud/storage.dart';
@@ -25,7 +27,6 @@ class MockSkiaPerfGcsAdaptor implements SkiaPerfGcsAdaptor {
   Map<String, List<SkiaPerfPoint>> _storage = {};
 }
 
-@Timeout(Duration(seconds: 3600))
 void main() {
   const double value1 = 1.0;
   const double value2 = 2.0;

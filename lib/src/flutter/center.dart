@@ -21,21 +21,27 @@ class FlutterCenter {
     await Future.wait(_otherSources.map(_pullFromSource));
     await _flutterSrc.updateSourceTime();
     await Future.wait(_otherDestinations.map(_pushToDestination));
-    // TODO Write the updated srcUpdateTime and dstUpdateTime into Datastore.
+    await _writeUpdateTime();
   }
 
   FlutterCenter(
     DatastoreDB db, {
+    FlutterSource flutterSource,
+    FlutterDestination flutterDestination,
     List<MetricSource> otherSources,
     List<MetricDestination> otherDestinations,
     Map<String, DateTime> srcUpdateTime,
     Map<String, DateTime> dstUpdateTime,
-  })  : _flutterDst = FlutterDestination(db),
-        _flutterSrc = FlutterSource(db),
+  })  : _flutterDst = flutterDestination,
+        _flutterSrc = flutterSource,
         _otherSources = otherSources,
         _otherDestinations = otherDestinations,
         _srcUpdateTime = srcUpdateTime,
-        _dstUpdateTime = dstUpdateTime {
+        _dstUpdateTime = dstUpdateTime,
+        _db = db {
+    _flutterSrc ??= FlutterSource(db);
+    _flutterDst ??= FlutterDestination(db);
+
     _otherSources ??= [];
 
     // TODO(liyuqian): add SkiaPerfDestination as a default other destination
@@ -57,8 +63,31 @@ class FlutterCenter {
   static Future<FlutterCenter> makeFromCredentialsJson(
       Map<String, dynamic> json) async {
     final db = await datastoreFromCredentialsJson(json);
-    // TODO load update time
+    final query = db.query<UpdateTimeModel>();
+    final List<UpdateTimeModel> models = await query.run().toList();
+    final Map<String, DateTime> srcUpdateTime = {};
+    final Map<String, DateTime> dstUpdateTime = {};
+    for (UpdateTimeModel model in models) {
+      final String id = model.id.toString();
+      if (id.startsWith(UpdateTimeModel.kSrcPrefix)) {
+        srcUpdateTime[UpdateTimeModel.getSrcId(id)] =
+            DateTime.fromMicrosecondsSinceEpoch(model.micros);
+      } else {
+        assert(id.startsWith(UpdateTimeModel.kDstPrefix));
+        dstUpdateTime[UpdateTimeModel.getDstId(id)] =
+            DateTime.fromMicrosecondsSinceEpoch(model.micros);
+      }
+    }
     return FlutterCenter(db);
+  }
+
+  Future<void> _writeUpdateTime() async {
+    final List<UpdateTimeModel> models = [
+      ..._srcUpdateTime.entries.map((x) => UpdateTimeModel.src(x.key, x.value)),
+      ..._dstUpdateTime.entries.map((x) => UpdateTimeModel.dst(x.key, x.value)),
+    ];
+    // We won't use transactions as it's Ok to have some writes failed.
+    await _db.commit(inserts: models);
   }
 
   Future<void> _pushToDestination(MetricDestination destination) async {
@@ -90,7 +119,8 @@ class FlutterCenter {
       return;
     }
     await _flutterDst.update(points);
-    assert(points.last.sourceTime != null);
+    assert(points.last.sourceTime.microsecondsSinceEpoch >
+        _srcUpdateTime[source.id].microsecondsSinceEpoch);
     _srcUpdateTime[source.id] = points.last.sourceTime;
   }
 
@@ -116,25 +146,32 @@ class FlutterCenter {
   List<MetricSource> _otherSources;
   List<MetricDestination> _otherDestinations;
 
-  final FlutterSource _flutterSrc;
-  final FlutterDestination _flutterDst;
+  FlutterSource _flutterSrc;
+  FlutterDestination _flutterDst;
+
+  final DatastoreDB _db;
 }
 
 @Kind(name: 'UpdateTime', idType: IdType.String)
 class UpdateTimeModel extends Model {
-  @IntProperty(
-      propertyName: kSourceTimeMicrosName, required: true, indexed: false)
-  int sourceTimeMicros;
+  @IntProperty(required: true, indexed: false)
+  int micros;
 
   UpdateTimeModel();
 
-  UpdateTimeModel.srcUpdateTime(String srcId, DateTime t) {
-    id = 'src: $srcId';
-    sourceTimeMicros = t.microsecondsSinceEpoch;
+  UpdateTimeModel.src(String srcId, DateTime t) {
+    id = '$kSrcPrefix$srcId';
+    micros = t.microsecondsSinceEpoch;
   }
 
-  UpdateTimeModel.dstUpdateTime(String dstId, DateTime t) {
-    id = 'dst: $dstId';
-    sourceTimeMicros = t.microsecondsSinceEpoch;
+  UpdateTimeModel.dst(String dstId, DateTime t) {
+    id = '$kDstPrefix$dstId';
+    micros = t.microsecondsSinceEpoch;
   }
+
+  static const String kSrcPrefix = 'src: ';
+  static const String kDstPrefix = 'dst: ';
+
+  static String getSrcId(String fullId) => fullId.substring(kSrcPrefix.length);
+  static String getDstId(String fullId) => fullId.substring(kDstPrefix.length);
 }
