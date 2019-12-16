@@ -28,4 +28,6 @@ class FlutterDestination extends MetricDestination {
   final DatastoreDB _db;
 }
 
-// TODO Convenience class FlutterEngineMetricPoint and FlutterFrameworkMetricPoint
+// TODO Convenience class FlutterEngineMetricPoint
+class FlutterEngineMetricsPoint {
+}

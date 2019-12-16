@@ -14,7 +14,9 @@ class GcsLock {
     }
   }
 
-  Future<void> _lock() {}
-  Future<void> _unlock() {}
-  int _lockCount = 0; // allow calling lock many times from the same thread.
+  Future<void> _lock() async {}
+  Future<void> _unlock() async {}
+
+  // Ensure that _lock can be called many times from the same thread.
+  // int _lockCount = 0;
 }
