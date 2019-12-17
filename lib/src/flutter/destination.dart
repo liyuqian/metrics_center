@@ -28,6 +28,18 @@ class FlutterDestination extends MetricDestination {
   final DatastoreDB _db;
 }
 
-// TODO Convenience class FlutterEngineMetricPoint
-class FlutterEngineMetricsPoint {
+/// Convenient class to capture the benchmarks in the Flutter engine repo.
+class FlutterEngineMetricsPoint extends MetricPoint {
+  FlutterEngineMetricsPoint(
+      String name, double value, String unit, String gitRevision,
+      {Map<String, String> moreTags})
+      : super(
+            value,
+            {
+              kNameKey: name,
+              kUnitKey: unit,
+              kGithubRepoKey: kFlutterEngineRepo,
+              kGitRevisionKey: gitRevision,
+            }..addAll(moreTags?? {}),
+            kFlutterCenterId);
 }
