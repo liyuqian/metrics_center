@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:collection';
+
+import 'package:crypto/crypto.dart';
 
 /// Common format of a metric data point
 class MetricPoint {
@@ -21,9 +24,12 @@ class MetricPoint {
 
   /// Unique identifier for updating existing data point.
   ///
+  /// We shouldn't have to worry about hash collisions until we have about
+  /// 2^128 points.
+  ///
   /// This id should stay constant even if the [tags.keys] are reordered.
   /// (Because we are using an ordered SplayTreeMap to generate the id.)
-  String get id => '$originId: $_tags';
+  String get id => sha256.convert(utf8.encode('$originId: $_tags')).toString();
 
   /// Where this point originally comes from. Used for dedup.
   ///
