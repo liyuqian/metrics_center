@@ -63,7 +63,7 @@ abstract class MetricSource<SourcePoint extends MetricPoint> {
   Future<List<SourcePoint>> getUpdatesAfter(DateTime timestamp);
 
   /// Unique id of the source. If this source is also a destination, then its
-  /// corresponding destination (often the same object, e.g., [MetricsCenter])
+  /// corresponding destination (e.g., [FlutterSource] and [FlutterDestination])
   /// should have the same id.
   String get id;
 }
@@ -75,8 +75,8 @@ abstract class MetricDestination {
   ///
   /// The destination could also ignore some points and not store them. For the
   /// non-ignored points, it should faithfully store the value, tags, raw, and
-  /// originId fields. Thus, if this destination is also a source (e.g., a
-  /// [MetricsCenter]), then when [getUpdatesAfter] is called on the source, we
+  /// originId fields. Thus, if this destination is also a source (e.g.,
+  /// [FlutterCenter]), then when [getUpdatesAfter] is called on the source, we
   /// should get the points with exactly the same fields that we just updated.
   /// This is especially important for the originId field which is used for
   /// dedup. Otherwise, there might be an update loop to generate an infinite
@@ -84,8 +84,8 @@ abstract class MetricDestination {
   Future<void> update(List<MetricPoint> points);
 
   /// Unique id of the destination. If this destination is also a source, then
-  /// its corresponding destination (often the same object, e.g.,
-  /// [MetricsCenter]) should have the same id.
+  /// its corresponding source (e.g., [FlutterSource] and [FlutterDestination])
+  /// should have the same id.
   String get id;
 }
 
