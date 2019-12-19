@@ -34,13 +34,18 @@ import 'package:metrics_center/src/common.dart';
 //     ...
 
 class SkiaPerfPoint extends MetricPoint {
-  SkiaPerfPoint(this.githubRepo, this.gitHash, double value, this._options,
-      this.jsonUrl, DateTime sourceTime)
+  SkiaPerfPoint._(this.githubRepo, this.gitHash, this.name, this._subResult,
+      double value, this._options, this.jsonUrl, DateTime sourceTime)
       : super(
           value,
           {}
             ..addAll(_options)
-            ..addAll({kGithubRepoKey: githubRepo, kGitRevisionKey: gitHash}),
+            ..addAll({
+              kGithubRepoKey: githubRepo,
+              kGitRevisionKey: gitHash,
+              kNameKey: name,
+              kSubResultKey: _subResult,
+            }),
           _options[kOriginIdKey] ?? kSkiaPerfId,
           sourceTime,
         ) {
@@ -49,31 +54,37 @@ class SkiaPerfPoint extends MetricPoint {
     assert(tags[kNameKey] != null);
     assert(_options[kGithubRepoKey] == null);
     assert(_options[kGitRevisionKey] == null);
+    assert(_options[kNameKey] == null);
   }
 
   factory SkiaPerfPoint.fromPoint(MetricPoint p) {
     final String githubRepo = p.tags[kGithubRepoKey];
     final String gitHash = p.tags[kGitRevisionKey];
-    if (githubRepo == null || gitHash == null || p.tags[kNameKey] == null) {
+    final String name = p.tags[kNameKey];
+    final String subResult = p.tags[kSubResultKey] ?? kSkiaPerfValueKey;
+
+    if (githubRepo == null || gitHash == null || name == null) {
       return null;
     }
 
     final Map<String, String> optionsWithSourceId = {}..addEntries(
         p.tags.entries.where(
           (MapEntry<String, dynamic> entry) =>
-              entry.key != kGithubRepoKey && entry.key != kGitRevisionKey,
+              entry.key != kGithubRepoKey &&
+              entry.key != kGitRevisionKey &&
+              entry.key != kNameKey &&
+              entry.key != kSubResultKey,
         ),
       );
 
-    // Map<String, String> optionsWithSourceId = p.tags.wh;
     if (optionsWithSourceId[kOriginIdKey] == null) {
       optionsWithSourceId[kOriginIdKey] = p.originId;
     }
 
     assert(optionsWithSourceId[kOriginIdKey] == p.originId);
 
-    return SkiaPerfPoint(
-        githubRepo, gitHash, p.value, optionsWithSourceId, null, null);
+    return SkiaPerfPoint._(githubRepo, gitHash, name, subResult, p.value,
+        optionsWithSourceId, null, null);
   }
 
   /// In the format of '<owner>/<name>' such as 'flutter/flutter' or
@@ -83,7 +94,11 @@ class SkiaPerfPoint extends MetricPoint {
   /// SHA such as 'ad20d368ffa09559754e4b2b5c12951341ca3b2d'
   final String gitHash;
 
-  String get name => tags[kNameKey];
+  final String name;
+
+  // The name of "subResult" comes from the special treatment of "sub_result" in
+  // SkiaPerf. If not provided, its value will be set to kSkiaPerfValueKey.
+  final String _subResult;
 
   /// The url to the Skia perf json file in the Google Cloud Storage bucket.
   ///
@@ -92,7 +107,7 @@ class SkiaPerfPoint extends MetricPoint {
 
   Map<String, dynamic> _toSubResultJson() {
     return <String, dynamic>{
-      kSkiaPerfValueKey: value,
+      _subResult: value,
       kSkiaPerfOptionsKey: _options,
     };
   }
@@ -115,7 +130,9 @@ class SkiaPerfPoint extends MetricPoint {
 
     final results = <String, dynamic>{};
     for (SkiaPerfPoint p in points) {
-      results[p.name] = p._toSubResultJson();
+      results[p.name] = {
+        kSkiaPerfDefaultConfig: p._toSubResultJson(),
+      };
     }
 
     return <String, dynamic>{
@@ -124,8 +141,8 @@ class SkiaPerfPoint extends MetricPoint {
     };
   }
 
-  // Equivalent to tags without git repo and git hash because those two are
-  // stored in the GCS object name.
+  // Equivalent to tags without git repo, git hash, and name because those two
+  // are already stored somewhere else.
   final Map<String, dynamic> _options;
 }
 
@@ -199,12 +216,17 @@ class SkiaPerfGcsAdaptor {
     final String gitHash = decodedJson[kSkiaPerfGitHashKey];
     Map<String, dynamic> results = decodedJson[kSkiaPerfResultsKey];
     for (String name in results.keys) {
-      final Map<String, dynamic> subResult = results[name];
-      points.add(SkiaPerfPoint(
+      final Map<String, dynamic> subResultMap =
+          results[name][kSkiaPerfDefaultConfig];
+      final String subResult =
+          subResultMap.keys.singleWhere((s) => s != kSkiaPerfOptionsKey);
+      points.add(SkiaPerfPoint._(
         githubRepo,
         gitHash,
-        subResult[kSkiaPerfValueKey],
-        subResult[kSkiaPerfOptionsKey],
+        name,
+        subResult,
+        subResultMap[kSkiaPerfValueKey],
+        subResultMap[kSkiaPerfOptionsKey],
         info.downloadLink.toString(),
         info.updated,
       ));
@@ -245,3 +267,5 @@ const String kSkiaPerfGitHashKey = 'gitHash';
 const String kSkiaPerfResultsKey = 'results';
 const String kSkiaPerfValueKey = 'value';
 const String kSkiaPerfOptionsKey = 'options';
+
+const String kSkiaPerfDefaultConfig = 'default';

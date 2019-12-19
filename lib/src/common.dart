@@ -96,6 +96,7 @@ const String kOriginIdKey = 'originId';
 const String kTaskNameKey = 'taskName';
 const String kUnitKey = 'unit';
 const String kNameKey = 'name';
+const String kSubResultKey = 'subResult';
 
 /// Known source/destination ids
 const String kCocoonId = 'cocoon';

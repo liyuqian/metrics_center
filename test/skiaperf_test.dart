@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:gcloud/storage.dart';
 import 'package:googleapis_auth/auth.dart';
 import 'package:googleapis_auth/auth_io.dart';
+import 'package:metrics_center/flutter.dart';
 import 'package:test/test.dart';
 
 import 'package:metrics_center/src/common.dart';
@@ -19,7 +20,8 @@ class MockSkiaPerfGcsAdaptor implements SkiaPerfGcsAdaptor {
   }
 
   @override
-  Future<void> writePoints(String objectName, List<SkiaPerfPoint> points) async {
+  Future<void> writePoints(
+      String objectName, List<SkiaPerfPoint> points) async {
     _storage[objectName] = points.toList();
   }
 
@@ -77,6 +79,21 @@ void main() {
     kCocoonId,
   );
 
+  final enginePoint = FlutterEngineMetricsPoint(
+    'BM_PaintRecordInit',
+    101,
+    'ca799fa8b2254d09664b78ee80c43b434788d112',
+    moreTags: {
+      kSubResultKey: 'cpu_time',
+      kUnitKey: 'ns',
+      'date': '2019-12-17 15:14:14',
+      'num_cpus': '56',
+      'mhz_per_cpu': '2594',
+      'cpu_scaling_enabled': 'true',
+      'library_build_type': 'release',
+    },
+  );
+
   test('Invalid points convert to null SkiaPoint', () {
     final noGithubRepoPoint = MetricPoint(
       value1,
@@ -109,32 +126,62 @@ void main() {
     expect(skiaPoint1.jsonUrl, isNull); // Not inserted yet
   });
 
-  test('SkiaPoints correctly encode into Skia perf json format', () {
+  test('Cocoon points correctly encode into Skia perf json format', () {
     final p1 = SkiaPerfPoint.fromPoint(cocoonPointRev1Name1);
     final p2 = SkiaPerfPoint.fromPoint(cocoonPointRev1Name2);
 
     final JsonEncoder encoder = JsonEncoder.withIndent('  ');
-    expect(encoder.convert(SkiaPerfPoint.toSkiaPerfJson(<SkiaPerfPoint>[p1, p2])),
+    expect(
+        encoder.convert(SkiaPerfPoint.toSkiaPerfJson(<SkiaPerfPoint>[p1, p2])),
         equals('''
 {
   "gitHash": "9011cece2595447eea5dd91adaa241c1c9ef9a33",
   "results": {
     "analyzer_benchmark.flutter_repo_batch_maximum": {
-      "value": 1.0,
-      "options": {
-        "name": "analyzer_benchmark.flutter_repo_batch_maximum",
-        "taskName": "analyzer_benchmark",
-        "unit": "s",
-        "originId": "cocoon"
+      "default": {
+        "value": 1.0,
+        "options": {
+          "taskName": "analyzer_benchmark",
+          "unit": "s",
+          "originId": "cocoon"
+        }
       }
     },
     "analyzer_benchmark.flutter_repo_watch_maximum": {
-      "value": 2.0,
-      "options": {
-        "name": "analyzer_benchmark.flutter_repo_watch_maximum",
-        "taskName": "analyzer_benchmark",
-        "unit": "s",
-        "originId": "cocoon"
+      "default": {
+        "value": 2.0,
+        "options": {
+          "taskName": "analyzer_benchmark",
+          "unit": "s",
+          "originId": "cocoon"
+        }
+      }
+    }
+  }
+}'''));
+  });
+
+  test('Engine points correctly encode into Skia perf json format', () {
+    final JsonEncoder encoder = JsonEncoder.withIndent('  ');
+    expect(
+        encoder.convert(SkiaPerfPoint.toSkiaPerfJson(
+            <SkiaPerfPoint>[SkiaPerfPoint.fromPoint(enginePoint)])),
+        equals('''
+{
+  "gitHash": "ca799fa8b2254d09664b78ee80c43b434788d112",
+  "results": {
+    "BM_PaintRecordInit": {
+      "default": {
+        "cpu_time": 101.0,
+        "options": {
+          "cpu_scaling_enabled": "true",
+          "date": "2019-12-17 15:14:14",
+          "library_build_type": "release",
+          "mhz_per_cpu": "2594",
+          "num_cpus": "56",
+          "unit": "ns",
+          "originId": "flutter-center"
+        }
       }
     }
   }
@@ -202,7 +249,8 @@ void main() {
       SkiaPerfPoint.fromPoint(cocoonPointRev1Name2),
     ]);
 
-    final List<SkiaPerfPoint> points = await skiaPerfGcs.readPoints(testObjectName);
+    final List<SkiaPerfPoint> points =
+        await skiaPerfGcs.readPoints(testObjectName);
     expect(points.length, equals(2));
     _expectSetMatch<String>(
         points.map((SkiaPerfPoint p) => p.originId), [kCocoonId, kCocoonId]);
