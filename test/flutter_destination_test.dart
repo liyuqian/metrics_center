@@ -16,7 +16,7 @@ void main() {
 
   test('FlutterEngineMetricPoint works.', () {
     const String gitRevision = 'ca799fa8b2254d09664b78ee80c43b434788d112';
-    final simplePoint = FlutterEngineMetricsPoint(
+    final simplePoint = FlutterEngineMetricPoint(
       'BM_ParagraphLongLayout',
       287235,
       gitRevision,
@@ -27,7 +27,7 @@ void main() {
     expect(simplePoint.tags[kGitRevisionKey], gitRevision);
     expect(simplePoint.tags[kNameKey], 'BM_ParagraphLongLayout');
 
-    final detailedPoint = FlutterEngineMetricsPoint(
+    final detailedPoint = FlutterEngineMetricPoint(
       'BM_ParagraphLongLayout',
       287224,
       'ca799fa8b2254d09664b78ee80c43b434788d112',

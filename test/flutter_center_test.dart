@@ -15,6 +15,8 @@ import 'utility.dart';
 
 const String kTestSourceId = 'test';
 
+// This test may be affected by flutter_destination_test.dart if they're
+// running concurrently. Therefore `pub run test test -j1` is recommended
 void main() {
   test('Exercise both FlutterSource and FlutterDestination.', () async {
     final db = await datastoreFromCredentialsJson(getGcpCredentialsJson());

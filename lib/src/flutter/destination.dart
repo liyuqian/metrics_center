@@ -29,8 +29,8 @@ class FlutterDestination extends MetricDestination {
 }
 
 /// Convenient class to capture the benchmarks in the Flutter engine repo.
-class FlutterEngineMetricsPoint extends MetricPoint {
-  FlutterEngineMetricsPoint(
+class FlutterEngineMetricPoint extends MetricPoint {
+  FlutterEngineMetricPoint(
       String name, double value, String gitRevision,
       {Map<String, String> moreTags})
       : super(

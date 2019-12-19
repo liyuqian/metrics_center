@@ -79,7 +79,7 @@ void main() {
     kCocoonId,
   );
 
-  final enginePoint = FlutterEngineMetricsPoint(
+  final enginePoint = FlutterEngineMetricPoint(
     'BM_PaintRecordInit',
     101,
     'ca799fa8b2254d09664b78ee80c43b434788d112',
