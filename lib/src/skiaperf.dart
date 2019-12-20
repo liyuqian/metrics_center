@@ -119,7 +119,6 @@ class SkiaPerfPoint extends MetricPoint {
   ///
   /// The list must be non-empty.
   static Map<String, dynamic> toSkiaPerfJson(List<SkiaPerfPoint> points) {
-    // TODO same name, multiple sub results
     assert(points.isNotEmpty);
     assert(() {
       for (SkiaPerfPoint p in points) {
@@ -133,9 +132,22 @@ class SkiaPerfPoint extends MetricPoint {
 
     final results = <String, dynamic>{};
     for (SkiaPerfPoint p in points) {
-      results[p.name] = {
-        kSkiaPerfDefaultConfig: p._toSubResultJson(),
-      };
+      final Map<String, dynamic> subResultJson = p._toSubResultJson();
+      if (results[p.name] == null) {
+        results[p.name] = {
+          kSkiaPerfDefaultConfig: subResultJson,
+        };
+      } else {
+        // Flutter currently does't support having the same name but different
+        // options/configurations. If this actually happens in the future, we
+        // probably can use different values of config (currently there's only
+        // one kSkiaPerfDefaultConfig) to resolve the conflict.
+        assert(results[p.name][kSkiaPerfDefaultConfig][kSkiaPerfOptionsKey]
+                .toString() ==
+            subResultJson[kSkiaPerfOptionsKey].toString());
+        assert(results[p.name][kSkiaPerfDefaultConfig][p._subResult] == null);
+        results[p.name][kSkiaPerfDefaultConfig][p._subResult] = p.value;
+      }
     }
 
     return <String, dynamic>{
@@ -154,7 +166,8 @@ class SkiaPerfDestination extends MetricDestination {
   static const String kTestBucketName = 'flutter-skia-perf-test';
 
   static Future<SkiaPerfDestination> makeFromGcpCredentials(
-      Map<String, dynamic> credentialsJson, {bool isTesting = false}) async {
+      Map<String, dynamic> credentialsJson,
+      {bool isTesting = false}) async {
     final credentials = ServiceAccountCredentials.fromJson(credentialsJson);
 
     final client = await clientViaServiceAccount(credentials, Storage.SCOPES);
@@ -248,18 +261,18 @@ class SkiaPerfGcsAdaptor {
     for (String name in results.keys) {
       final Map<String, dynamic> subResultMap =
           results[name][kSkiaPerfDefaultConfig];
-      final String subResult =
-          subResultMap.keys.singleWhere((s) => s != kSkiaPerfOptionsKey);
-      points.add(SkiaPerfPoint._(
-        githubRepo,
-        gitHash,
-        name,
-        subResult,
-        subResultMap[kSkiaPerfValueKey],
-        subResultMap[kSkiaPerfOptionsKey],
-        info.downloadLink.toString(),
-        info.updated,
-      ));
+      for (String subResult in subResultMap.keys.where((s) => s != kSkiaPerfOptionsKey)) {
+        points.add(SkiaPerfPoint._(
+          githubRepo,
+          gitHash,
+          name,
+          subResult,
+          subResultMap[subResult],
+          subResultMap[kSkiaPerfOptionsKey],
+          info.downloadLink.toString(),
+          info.updated,
+        ));
+      }
     }
     return points;
   }

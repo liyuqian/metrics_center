@@ -24,7 +24,8 @@ Future<void> main(List<String> args) async {
 
   while (true) {
     print('Start synchronizing at ${DateTime.now()}');
-    await center.synchronize();
+    int number = await center.synchronize();
+    print('$number points have been pulled or pushed.');
     print('Finish synchronizing at ${DateTime.now()}');
     print('Sleep for $kSleepDuration...\n\n');
     await Future.delayed(kSleepDuration);

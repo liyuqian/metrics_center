@@ -19,11 +19,23 @@ class FlutterCenter {
   /// 2. Set sourceTime of the newly added points.
   /// 3. Push data from this center to other destinations.
   /// 4. Write the updated srcUpdateTime and dstUpdateTime into Datastore.
-  Future<void> synchronize() async {
-    await Future.wait(_otherSources.map(_pullFromSource));
+  ///
+  /// Returns the total number of points pulled or pushed.
+  Future<int> synchronize() async {
+    final List<int> pulled =
+        await Future.wait(_otherSources.map(_pullFromSource));
+
     await _flutterSrc.updateSourceTime();
-    await Future.wait(_otherDestinations.map(_pushToDestination));
+
+    final List<int> pushed =
+        await Future.wait(_otherDestinations.map(_pushToDestination));
+
     await _writeUpdateTime();
+
+    int sum(int a, int b) => a + b;
+    final int totalPulled = pulled.isNotEmpty ? pulled.reduce(sum) : 0;
+    final int totalPushed = pushed.isNotEmpty ? pushed.reduce(sum) : 0;
+    return totalPulled + totalPushed;
   }
 
   FlutterCenter(
@@ -87,7 +99,12 @@ class FlutterCenter {
           isTesting: isTesting),
     ];
 
-    return FlutterCenter(db, otherDestinations: destinations);
+    return FlutterCenter(
+      db,
+      otherDestinations: destinations,
+      srcUpdateTime: srcUpdateTime,
+      dstUpdateTime: dstUpdateTime,
+    );
   }
 
   Future<void> _writeUpdateTime() async {
@@ -99,7 +116,8 @@ class FlutterCenter {
     await _db.commit(inserts: models);
   }
 
-  Future<void> _pushToDestination(MetricDestination destination) async {
+  // Returns the number of points pushed
+  Future<int> _pushToDestination(MetricDestination destination) async {
     // To dedup, do not send data from that destination. This is important as
     // some destinations are also sources (e.g., [FlutterCenter]).
     List<MetricPoint> points =
@@ -109,14 +127,16 @@ class FlutterCenter {
             )
             .toList();
     if (points.isEmpty) {
-      return;
+      return 0;
     }
     await destination.update(points);
     assert(points.last.sourceTime != null);
     _dstUpdateTime[destination.id] = points.last.sourceTime;
+    return points.length;
   }
 
-  Future<void> _pullFromSource(MetricSource source) async {
+  // Returns the number of points pulled.
+  Future<int> _pullFromSource(MetricSource source) async {
     // To dedup, don't pull any data from other sources. This is important as
     // some sources are also destinations (e.g., [FlutterCenter]), and data from
     // other sources could be pushed there.
@@ -125,12 +145,13 @@ class FlutterCenter {
             .where((p) => p.originId == source.id)
             .toList();
     if (points.isEmpty) {
-      return;
+      return 0;
     }
     await _flutterDst.update(points);
     assert(points.last.sourceTime.microsecondsSinceEpoch >
         _srcUpdateTime[source.id].microsecondsSinceEpoch);
     _srcUpdateTime[source.id] = points.last.sourceTime;
+    return points.length;
   }
 
   // Map from a source id to the largest sourceTime timestamp of any data that

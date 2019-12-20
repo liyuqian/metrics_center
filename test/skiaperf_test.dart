@@ -77,12 +77,32 @@ void main() {
     kCocoonId,
   );
 
-  final enginePoint = FlutterEngineMetricPoint(
-    'BM_PaintRecordInit',
-    101,
-    'ca799fa8b2254d09664b78ee80c43b434788d112',
+  const String engineMetricName = 'BM_PaintRecordInit';
+  const String engineRevision = 'ca799fa8b2254d09664b78ee80c43b434788d112';
+  const double engineValue1 = 101;
+  const double engineValue2 = 102;
+
+  final enginePoint1 = FlutterEngineMetricPoint(
+    engineMetricName,
+    engineValue1,
+    engineRevision,
     moreTags: {
       kSubResultKey: 'cpu_time',
+      kUnitKey: 'ns',
+      'date': '2019-12-17 15:14:14',
+      'num_cpus': '56',
+      'mhz_per_cpu': '2594',
+      'cpu_scaling_enabled': 'true',
+      'library_build_type': 'release',
+    },
+  );
+
+  final enginePoint2 = FlutterEngineMetricPoint(
+    engineMetricName,
+    engineValue2,
+    engineRevision,
+    moreTags: {
+      kSubResultKey: 'real_time',
       kUnitKey: 'ns',
       'date': '2019-12-17 15:14:14',
       'num_cpus': '56',
@@ -162,9 +182,12 @@ void main() {
   test('Engine points correctly encode into Skia perf json format', () {
     final JsonEncoder encoder = JsonEncoder.withIndent('  ');
     expect(
-        encoder.convert(SkiaPerfPoint.toSkiaPerfJson(
-            <SkiaPerfPoint>[SkiaPerfPoint.fromPoint(enginePoint)])),
-        equals('''
+      encoder.convert(SkiaPerfPoint.toSkiaPerfJson(<SkiaPerfPoint>[
+        SkiaPerfPoint.fromPoint(enginePoint1),
+        SkiaPerfPoint.fromPoint(enginePoint2),
+      ])),
+      equals(
+        '''
 {
   "gitHash": "ca799fa8b2254d09664b78ee80c43b434788d112",
   "results": {
@@ -179,11 +202,46 @@ void main() {
           "num_cpus": "56",
           "unit": "ns",
           "originId": "flutter-center"
-        }
+        },
+        "real_time": 102.0
       }
     }
   }
-}'''));
+}''',
+      ),
+    );
+  });
+
+  test('Throw if points have the same name but different options', () {
+    final enginePoint1 = FlutterEngineMetricPoint(
+      'BM_PaintRecordInit',
+      101,
+      'ca799fa8b2254d09664b78ee80c43b434788d112',
+      moreTags: {
+        kSubResultKey: 'cpu_time',
+        kUnitKey: 'ns',
+        'cpu_scaling_enabled': 'true',
+      },
+    );
+    final enginePoint2 = FlutterEngineMetricPoint(
+      'BM_PaintRecordInit',
+      102,
+      'ca799fa8b2254d09664b78ee80c43b434788d112',
+      moreTags: {
+        kSubResultKey: 'real_time',
+        kUnitKey: 'ns',
+        'cpu_scaling_enabled': 'false',
+      },
+    );
+
+    final JsonEncoder encoder = JsonEncoder.withIndent('  ');
+    expect(
+      () => encoder.convert(SkiaPerfPoint.toSkiaPerfJson(<SkiaPerfPoint>[
+        SkiaPerfPoint.fromPoint(enginePoint1),
+        SkiaPerfPoint.fromPoint(enginePoint2),
+      ])),
+      throwsA(anything),
+    );
   });
 
   void _expectSetMatch<T>(Iterable<T> actual, Iterable<T> expected) {
@@ -266,6 +324,55 @@ void main() {
     }
   });
 
+  test('SkiaPerfGcsAdaptor end-to-end test with engine points', () async {
+    final Map<String, dynamic> credentialsJson = getGcpCredentialsJson();
+    final credentials = ServiceAccountCredentials.fromJson(credentialsJson);
+
+    final client = await clientViaServiceAccount(credentials, Storage.SCOPES);
+    final storage = Storage(client, credentialsJson['project_id']);
+
+    expect(await storage.bucketExists(SkiaPerfDestination.kTestBucketName),
+        isTrue);
+
+    final Bucket testBucket =
+        storage.bucket(SkiaPerfDestination.kTestBucketName);
+    final skiaPerfGcs = SkiaPerfGcsAdaptor(testBucket);
+
+    final String testObjectName = await SkiaPerfGcsAdaptor.comptueObjectName(
+        kFlutterEngineRepo, engineRevision);
+
+    await skiaPerfGcs.writePoints(testObjectName, <SkiaPerfPoint>[
+      SkiaPerfPoint.fromPoint(enginePoint1),
+      SkiaPerfPoint.fromPoint(enginePoint2),
+    ]);
+
+    final List<SkiaPerfPoint> points =
+        await skiaPerfGcs.readPoints(testObjectName);
+    expect(points.length, equals(2));
+    _expectSetMatch<String>(
+      points.map((SkiaPerfPoint p) => p.originId),
+      [kFlutterCenterId, kFlutterCenterId],
+    );
+    _expectSetMatch(
+      points.map((SkiaPerfPoint p) => p.name),
+      [engineMetricName, engineMetricName],
+    );
+    _expectSetMatch(
+      points.map((SkiaPerfPoint p) => p.value),
+      [engineValue1, engineValue2],
+    );
+    _expectSetMatch(
+      points.map((SkiaPerfPoint p) => p.githubRepo),
+      [kFlutterEngineRepo],
+    );
+    _expectSetMatch(
+        points.map((SkiaPerfPoint p) => p.gitHash), [engineRevision]);
+    for (int i = 0; i < 2; i += 1) {
+      expect(points[0].jsonUrl, startsWith('https://'));
+      expect(points[0].sourceTime, isNotNull);
+    }
+  });
+
   test('SkiaPerfDestination can write new points of a commit revision.',
       () async {
     final Map<String, dynamic> credentialsJson = getGcpCredentialsJson();
@@ -287,7 +394,8 @@ void main() {
     }
 
     // Second, update the points
-    final destination = await SkiaPerfDestination.makeFromGcpCredentials(credentialsJson,
+    final destination = await SkiaPerfDestination.makeFromGcpCredentials(
+        credentialsJson,
         isTesting: true);
     await destination.update([cocoonPointRev1Name1]);
   });
