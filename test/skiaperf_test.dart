@@ -41,8 +41,6 @@ void main() {
 
   const String engineRevision1 = '617938024315e205f26ed72ff0f0647775fa6a71';
 
-  const String testBucketName = 'personal-test-211504-test';
-
   final cocoonPointRev1Name1 = MetricPoint(
     value1,
     <String, dynamic>{
@@ -236,9 +234,11 @@ void main() {
     final client = await clientViaServiceAccount(credentials, Storage.SCOPES);
     final storage = Storage(client, credentialsJson['project_id']);
 
-    expect(await storage.bucketExists(testBucketName), isTrue);
+    expect(await storage.bucketExists(SkiaPerfDestination.kTestBucketName),
+        isTrue);
 
-    final Bucket testBucket = storage.bucket(testBucketName);
+    final Bucket testBucket =
+        storage.bucket(SkiaPerfDestination.kTestBucketName);
     final skiaPerfGcs = SkiaPerfGcsAdaptor(testBucket);
 
     final String testObjectName = await SkiaPerfGcsAdaptor.comptueObjectName(
@@ -264,5 +264,31 @@ void main() {
       expect(points[0].jsonUrl, startsWith('https://'));
       expect(points[0].sourceTime, isNotNull);
     }
+  });
+
+  test('SkiaPerfDestination can write new points of a commit revision.',
+      () async {
+    final Map<String, dynamic> credentialsJson = getGcpCredentialsJson();
+    final credentials = ServiceAccountCredentials.fromJson(credentialsJson);
+
+    // First, delete the existing GCS object of that commit revision
+    final client = await clientViaServiceAccount(credentials, Storage.SCOPES);
+    final storage = Storage(client, credentialsJson['project_id']);
+    final Bucket testBucket =
+        storage.bucket(SkiaPerfDestination.kTestBucketName);
+    final String testObjectName = await SkiaPerfGcsAdaptor.comptueObjectName(
+        kFlutterFrameworkRepo, frameworkRevision1);
+    try {
+      await testBucket.delete(testObjectName);
+    } catch (e) {
+      if (!e.toString().contains('No such object')) {
+        rethrow;
+      }
+    }
+
+    // Second, update the points
+    final destination = await SkiaPerfDestination.makeFromGcpCredentials(credentialsJson,
+        isTesting: true);
+    await destination.update([cocoonPointRev1Name1]);
   });
 }

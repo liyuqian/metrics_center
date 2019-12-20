@@ -1,6 +1,7 @@
 name: metrics_center
 
 dependencies:
+  args: any
   crypto: any
   gcloud: any
   googleapis: any

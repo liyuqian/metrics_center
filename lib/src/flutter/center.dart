@@ -4,6 +4,7 @@ import 'package:metrics_center/src/common.dart';
 import 'package:metrics_center/src/flutter/common.dart';
 import 'package:metrics_center/src/flutter/destination.dart';
 import 'package:metrics_center/src/flutter/source.dart';
+import 'package:metrics_center/src/skiaperf.dart';
 
 // TODO(liyuqian): issue 1. support batching so we won't run out of memory if
 // the list is too large.
@@ -45,8 +46,6 @@ class FlutterCenter {
 
     _otherSources ??= [];
 
-    // TODO(liyuqian): add SkiaPerfDestination as a default other destination
-    // if the constructor doesn't specify one
     _otherDestinations ??= [];
 
     _srcUpdateTime ??= {};
@@ -61,9 +60,9 @@ class FlutterCenter {
     }
   }
 
-  static Future<FlutterCenter> makeFromCredentialsJson(
-      Map<String, dynamic> json) async {
-    final db = await datastoreFromCredentialsJson(json);
+  static Future<FlutterCenter> makeDefault(Map<String, dynamic> gcpCredentials,
+      {bool isTesting = false}) async {
+    final db = await datastoreFromCredentialsJson(gcpCredentials);
     final query = db.query<UpdateTimeModel>();
     final List<UpdateTimeModel> models = await query.run().toList();
     final Map<String, DateTime> srcUpdateTime = {};
@@ -79,7 +78,16 @@ class FlutterCenter {
             DateTime.fromMicrosecondsSinceEpoch(model.micros);
       }
     }
-    return FlutterCenter(db);
+
+    // By default, we use SkiaPerf as our unique other destination. Future
+    // sources and destinations should be added here so
+    // bin/run_flutter_center.dart would have them.
+    final List<MetricDestination> destinations = [
+      await SkiaPerfDestination.makeFromGcpCredentials(gcpCredentials,
+          isTesting: isTesting),
+    ];
+
+    return FlutterCenter(db, otherDestinations: destinations);
   }
 
   Future<void> _writeUpdateTime() async {

@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:gcloud/storage.dart';
+import 'package:googleapis_auth/auth.dart';
+import 'package:googleapis_auth/auth_io.dart';
 import 'package:metrics_center/src/github_helper.dart';
 
 import 'package:metrics_center/src/common.dart';
@@ -117,6 +119,7 @@ class SkiaPerfPoint extends MetricPoint {
   ///
   /// The list must be non-empty.
   static Map<String, dynamic> toSkiaPerfJson(List<SkiaPerfPoint> points) {
+    // TODO same name, multiple sub results
     assert(points.isNotEmpty);
     assert(() {
       for (SkiaPerfPoint p in points) {
@@ -147,6 +150,24 @@ class SkiaPerfPoint extends MetricPoint {
 }
 
 class SkiaPerfDestination extends MetricDestination {
+  static const String kBucketName = 'flutter-skia-perf';
+  static const String kTestBucketName = 'flutter-skia-perf-test';
+
+  static Future<SkiaPerfDestination> makeFromGcpCredentials(
+      Map<String, dynamic> credentialsJson, {bool isTesting = false}) async {
+    final credentials = ServiceAccountCredentials.fromJson(credentialsJson);
+
+    final client = await clientViaServiceAccount(credentials, Storage.SCOPES);
+    final storage = Storage(client, credentialsJson['project_id']);
+    final bucketName = isTesting ? kTestBucketName : kBucketName;
+
+    if (!await storage.bucketExists(bucketName)) {
+      throw 'Bucket $kBucketName does not exist.';
+    }
+
+    return SkiaPerfDestination(SkiaPerfGcsAdaptor(storage.bucket(bucketName)));
+  }
+
   SkiaPerfDestination(this._gcs);
 
   @override
@@ -200,7 +221,16 @@ class SkiaPerfGcsAdaptor {
 
   // Return an  empty list if the object does not exist in the GCS bucket.
   Future<List<SkiaPerfPoint>> readPoints(String objectName) async {
-    final ObjectInfo info = await _gcsBucket.info(objectName);
+    ObjectInfo info;
+    try {
+      info = await _gcsBucket.info(objectName);
+    } catch (e) {
+      if (e.toString().contains('No such object')) {
+        return [];
+      } else {
+        rethrow;
+      }
+    }
     final Stream<List<int>> stream = _gcsBucket.read(objectName);
     final Stream<int> byteStream = stream.expand((x) => x);
     final Map<String, dynamic> decodedJson =
