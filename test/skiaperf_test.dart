@@ -244,10 +244,6 @@ void main() {
     );
   });
 
-  void _expectSetMatch<T>(Iterable<T> actual, Iterable<T> expected) {
-    expect(Set<T>.from(actual), equals(Set<T>.from(expected)));
-  }
-
   test('SkiaPerfDestination correctly updates points', () async {
     final mockGcs = MockSkiaPerfGcsAdaptor();
     final dst = SkiaPerfDestination(mockGcs);
@@ -257,10 +253,10 @@ void main() {
         await SkiaPerfGcsAdaptor.comptueObjectName(
             kFlutterFrameworkRepo, frameworkRevision1));
     expect(points.length, equals(2));
-    _expectSetMatch<String>(
+    expectSetMatch<String>(
         points.map((SkiaPerfPoint p) => p.originId), [kCocoonId, kCocoonId]);
-    _expectSetMatch(points.map((SkiaPerfPoint p) => p.name), [name1, name2]);
-    _expectSetMatch(points.map((SkiaPerfPoint p) => p.value), [value1, value2]);
+    expectSetMatch(points.map((SkiaPerfPoint p) => p.name), [name1, name2]);
+    expectSetMatch(points.map((SkiaPerfPoint p) => p.value), [value1, value2]);
 
     await dst.update(<MetricPoint>[cocoonPointRev1Name1, cocoonPointRev2Name1]);
     points = await mockGcs.readPoints(
@@ -310,13 +306,13 @@ void main() {
     final List<SkiaPerfPoint> points =
         await skiaPerfGcs.readPoints(testObjectName);
     expect(points.length, equals(2));
-    _expectSetMatch<String>(
+    expectSetMatch<String>(
         points.map((SkiaPerfPoint p) => p.originId), [kCocoonId, kCocoonId]);
-    _expectSetMatch(points.map((SkiaPerfPoint p) => p.name), [name1, name2]);
-    _expectSetMatch(points.map((SkiaPerfPoint p) => p.value), [value1, value2]);
-    _expectSetMatch(
+    expectSetMatch(points.map((SkiaPerfPoint p) => p.name), [name1, name2]);
+    expectSetMatch(points.map((SkiaPerfPoint p) => p.value), [value1, value2]);
+    expectSetMatch(
         points.map((SkiaPerfPoint p) => p.githubRepo), [kFlutterFrameworkRepo]);
-    _expectSetMatch(
+    expectSetMatch(
         points.map((SkiaPerfPoint p) => p.gitHash), [frameworkRevision1]);
     for (int i = 0; i < 2; i += 1) {
       expect(points[0].jsonUrl, startsWith('https://'));
@@ -349,23 +345,23 @@ void main() {
     final List<SkiaPerfPoint> points =
         await skiaPerfGcs.readPoints(testObjectName);
     expect(points.length, equals(2));
-    _expectSetMatch<String>(
+    expectSetMatch<String>(
       points.map((SkiaPerfPoint p) => p.originId),
       [kFlutterCenterId, kFlutterCenterId],
     );
-    _expectSetMatch(
+    expectSetMatch(
       points.map((SkiaPerfPoint p) => p.name),
       [engineMetricName, engineMetricName],
     );
-    _expectSetMatch(
+    expectSetMatch(
       points.map((SkiaPerfPoint p) => p.value),
       [engineValue1, engineValue2],
     );
-    _expectSetMatch(
+    expectSetMatch(
       points.map((SkiaPerfPoint p) => p.githubRepo),
       [kFlutterEngineRepo],
     );
-    _expectSetMatch(
+    expectSetMatch(
         points.map((SkiaPerfPoint p) => p.gitHash), [engineRevision]);
     for (int i = 0; i < 2; i += 1) {
       expect(points[0].jsonUrl, startsWith('https://'));
