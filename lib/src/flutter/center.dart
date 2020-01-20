@@ -6,6 +6,8 @@ import 'package:metrics_center/src/flutter/destination.dart';
 import 'package:metrics_center/src/flutter/source.dart';
 import 'package:metrics_center/src/skiaperf.dart';
 
+import 'package:gcloud/src/datastore_impl.dart';
+
 // TODO(liyuqian): issue 1. support batching so we won't run out of memory if
 // the list is too large.
 //
@@ -107,6 +109,28 @@ class FlutterCenter {
     );
   }
 
+  /// Take a list of [points] with sorted sourceTime, return a prefix sublist
+  /// whose length is no more than [size]. The last element of the returned list
+  /// must either be the last element of [points], or have a strictly smaller
+  /// sourceTime than the next element in [points].
+  ///
+  /// This helps [synchronize] to only handle a limited size of points at a time
+  /// so it won't trigger some out-of-quota issue.
+  ///
+  /// If the returned list can ony be empty, an exception may be thrown.
+  static List<MetricPoint> limitSize(List<MetricPoint> points, int size) {
+    if (points.length <= size) {
+      return points;
+    }
+    for (int i = size; i > 0; i -= 1) {
+      if (points[i].sourceTime.microsecondsSinceEpoch >
+          points[i - 1].sourceTime.microsecondsSinceEpoch) {
+        return points.sublist(0, i);
+      }
+    }
+    throw Exception('Cannot return an nonempty list with the limited size.');
+  }
+
   Future<void> _writeUpdateTime() async {
     final List<UpdateTimeModel> models = [
       ..._srcUpdateTime.entries.map((x) => UpdateTimeModel.src(x.key, x.value)),
@@ -129,6 +153,7 @@ class FlutterCenter {
     if (points.isEmpty) {
       return 0;
     }
+    points = limitSize(points, kMaxBatchSize);
     await destination.update(points);
     assert(points.last.sourceTime != null);
     _dstUpdateTime[destination.id] = points.last.sourceTime;
@@ -147,6 +172,7 @@ class FlutterCenter {
     if (points.isEmpty) {
       return 0;
     }
+    points = limitSize(points, kMaxBatchSize);
     await _flutterDst.update(points);
     assert(points.last.sourceTime.microsecondsSinceEpoch >
         _srcUpdateTime[source.id].microsecondsSinceEpoch);

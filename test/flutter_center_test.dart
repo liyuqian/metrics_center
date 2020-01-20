@@ -18,6 +18,20 @@ const String kTestSourceId = 'test';
 // This test may be affected by flutter_destination_test.dart if they're
 // running concurrently. Therefore `pub run test test -j1` is recommended
 void main() {
+  test('limitSize works correctly.', () {
+    final points = List<MetricPoint>();
+    for (int i = 0; i < 10; i += 1) {
+      points.add(MetricPoint(i.toDouble(), {'i': '$i'}, kTestSourceId, DateTime.fromMicrosecondsSinceEpoch(i < 5 ? 0 : 1)));
+    }
+
+    expect(FlutterCenter.limitSize(points, 20).length, equals(10));
+    expect(FlutterCenter.limitSize(points, 10).length, equals(10));
+    expect(FlutterCenter.limitSize(points, 8).length, equals(5));
+    expect(FlutterCenter.limitSize(points, 5).length, equals(5));
+
+    expect(() => FlutterCenter.limitSize(points, 3), throwsException);
+  });
+
   test('Can update 1000 points.', () async {
     // Datastore can only write 500 points at a time. Test that we can handle
     // 1000 points even with that limitation.
@@ -30,7 +44,11 @@ void main() {
       points.add(MetricPoint(i.toDouble(), {'i': '$i'}, kTestSourceId));
     }
     await flutterDst.update(points);
-    await flutterSrc.updateSourceTime();
+
+    // Make sure that all points are set so we won't affect later tests.
+    for (int i = 0; i < 1000 / kMaxBatchSize + 1; i += 1) {
+      await flutterSrc.updateSourceTime();
+    }
   });
 
   test('Exercise both FlutterSource and FlutterDestination.', () async {

@@ -61,6 +61,9 @@ class FlutterSource extends MetricSource {
   Future<List<MetricPoint>> _getPointsWithinLock(DateTime timestamp) async {
     final Query query = _db.query<MetricPointModel>();
     query.filter('$kSourceTimeMicrosName >', timestamp.microsecondsSinceEpoch);
+    // TODO(liyuqian): Undo the 300 limit once
+    // https://github.com/dart-lang/gcloud/issues/87 is fixed.
+    query.limit(300);
     List<MetricPointModel> rawPoints = await query.run().toList();
     List<MetricPoint> points = [];
     for (MetricPointModel rawPoint in rawPoints) {

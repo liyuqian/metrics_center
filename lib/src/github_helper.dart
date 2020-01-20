@@ -6,7 +6,7 @@ class GithubHelper {
     return _singleton;
   }
 
-  /// The result is cached is memory so querying the same thing again in the
+  /// The result is cached in memory so querying the same thing again in the
   /// same process is fast.
   Future<DateTime> getCommitDateTime(String githubRepo, String sha) async {
     final String key = '$githubRepo/commit/$sha';
