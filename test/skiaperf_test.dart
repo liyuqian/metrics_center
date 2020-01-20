@@ -271,12 +271,12 @@ void main() {
     expect(
       await SkiaPerfGcsAdaptor.comptueObjectName(
           kFlutterFrameworkRepo, frameworkRevision1),
-      equals('flutter-flutter/2019/12/4/$frameworkRevision1/values.json'),
+      equals('flutter-flutter/2019/12/4/23/$frameworkRevision1/values.json'),
     );
     expect(
       await SkiaPerfGcsAdaptor.comptueObjectName(
           kFlutterEngineRepo, engineRevision1),
-      equals('flutter-engine/2019/12/3/$engineRevision1/values.json'),
+      equals('flutter-engine/2019/12/3/20/$engineRevision1/values.json'),
     );
   });
 
