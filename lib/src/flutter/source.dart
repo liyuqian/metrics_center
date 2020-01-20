@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:gcloud/db.dart';
 
@@ -38,18 +39,23 @@ class FlutterSource extends MetricSource {
   static const Duration kTinyDuration = Duration(milliseconds: 1);
 
   Future<void> _updateSourceTimeWithinLock() async {
-    final setTime = DateTime.now();
-
     final Query query = _db.query<MetricPointModel>();
-    query.filter('$kSourceTimeMicrosName =', null);
+    // TODO(liyuqian): Undo the 300 limit once
+    // https://github.com/dart-lang/gcloud/issues/87 is fixed.
+    query..filter('$kSourceTimeMicrosName =', null)..limit(300);
     List<MetricPointModel> points = await query.run().toList();
-    for (MetricPointModel p in points) {
-      p.sourceTimeMicros = setTime.microsecondsSinceEpoch;
-    }
 
-    // It's Ok to not have a transaction here and only have only
-    // part of points being updated.
-    await _db.commit(inserts: points);
+    for (int start = 0; start < points.length; start += kMaxBatchSize) {
+      final int end = min(points.length, start + kMaxBatchSize);
+      final List<MetricPointModel> batch = points.sublist(start, end);
+      final setTime = DateTime.now();
+      for (MetricPointModel p in batch) {
+        p.sourceTimeMicros = setTime.microsecondsSinceEpoch;
+      }
+      // It's Ok to not have a transaction here and only have only
+      // part of points being updated.
+      await _db.commit(inserts: batch);
+    }
   }
 
   Future<List<MetricPoint>> _getPointsWithinLock(DateTime timestamp) async {

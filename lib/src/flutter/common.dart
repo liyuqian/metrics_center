@@ -9,6 +9,10 @@ import 'package:metrics_center/src/common.dart';
 
 const kSourceTimeMicrosName = 'sourceTimeMicros';
 
+// The size of 500 is currently limited by Google datastore. It cannot write
+// more than 500 entities in a single call.
+const int kMaxBatchSize = 500;
+
 @Kind(name: 'MetricPoint', idType: IdType.String)
 class MetricPointModel extends Model {
   @DoubleProperty(required: true, indexed: false)

@@ -18,6 +18,21 @@ const String kTestSourceId = 'test';
 // This test may be affected by flutter_destination_test.dart if they're
 // running concurrently. Therefore `pub run test test -j1` is recommended
 void main() {
+  test('Can update 1000 points.', () async {
+    // Datastore can only write 500 points at a time. Test that we can handle
+    // 1000 points even with that limitation.
+    final db = await datastoreFromCredentialsJson(getGcpCredentialsJson());
+    final flutterSrc = FlutterSource(db);
+    final flutterDst = FlutterDestination(db);
+
+    final points = List<MetricPoint>();
+    for (int i = 0; i < 1000; i += 1) {
+      points.add(MetricPoint(i.toDouble(), {'i': '$i'}, kTestSourceId));
+    }
+    await flutterDst.update(points);
+    await flutterSrc.updateSourceTime();
+  });
+
   test('Exercise both FlutterSource and FlutterDestination.', () async {
     final db = await datastoreFromCredentialsJson(getGcpCredentialsJson());
     final flutterSrc = FlutterSource(db);

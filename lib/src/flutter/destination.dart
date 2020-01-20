@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:gcloud/db.dart';
 import 'package:metrics_center/src/common.dart';
 
@@ -19,10 +21,14 @@ class FlutterDestination extends MetricDestination {
   Future<void> update(List<MetricPoint> points) async {
     final List<MetricPointModel> flutterCenterPoints =
         points.map((MetricPoint p) => MetricPointModel(from: p)).toList();
-    await _db.withTransaction((Transaction tx) async {
-      tx.queueMutations(inserts: flutterCenterPoints);
-      await tx.commit();
-    });
+
+    for (int start = 0; start < points.length; start += kMaxBatchSize) {
+      final int end = min(start + kMaxBatchSize, points.length);
+      await _db.withTransaction((Transaction tx) async {
+        tx.queueMutations(inserts: flutterCenterPoints.sublist(start, end));
+        await tx.commit();
+      });
+    }
   }
 
   final DatastoreDB _db;
