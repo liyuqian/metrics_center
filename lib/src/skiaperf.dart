@@ -235,13 +235,20 @@ class SkiaPerfGcsAdaptor {
   // Return an  empty list if the object does not exist in the GCS bucket.
   Future<List<SkiaPerfPoint>> readPoints(String objectName) async {
     ObjectInfo info;
-    try {
-      info = await _gcsBucket.info(objectName);
-    } catch (e) {
-      if (e.toString().contains('No such object')) {
-        return [];
-      } else {
-        rethrow;
+
+    // Retry multiple times as GCS may return 504 timeout.
+    for (int retry = 0; true; retry += 1) {
+      try {
+        info = await _gcsBucket.info(objectName);
+        break;
+      } catch (e) {
+        if (e.toString().contains('No such object')) {
+          return [];
+        } else {
+          if (retry == 5) {
+            rethrow;
+          }
+        }
       }
     }
     final Stream<List<int>> stream = _gcsBucket.read(objectName);
