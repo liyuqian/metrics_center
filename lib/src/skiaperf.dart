@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:gcloud/storage.dart';
+import 'package:googleapis/storage/v1.dart' show DetailedApiRequestError;
 import 'package:googleapis_auth/auth.dart';
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:metrics_center/src/github_helper.dart';
@@ -234,23 +235,34 @@ class SkiaPerfGcsAdaptor {
 
   // Return an  empty list if the object does not exist in the GCS bucket.
   Future<List<SkiaPerfPoint>> readPoints(String objectName) async {
-    ObjectInfo info;
-
     // Retry multiple times as GCS may return 504 timeout.
-    for (int retry = 0; true; retry += 1) {
+    for (int retry = 0; retry < 5; retry += 1) {
       try {
-        info = await _gcsBucket.info(objectName);
-        break;
+        return await _readPointsWithoutRetry(objectName);
       } catch (e) {
-        if (e.toString().contains('No such object')) {
-          return [];
-        } else {
-          if (retry == 5) {
-            rethrow;
-          }
+        if (e is DetailedApiRequestError && e.status == 504) {
+          continue;
         }
+        rethrow;
       }
     }
+    // Retry one last time and let the exception go through.
+    return await _readPointsWithoutRetry(objectName);
+  }
+
+  Future<List<SkiaPerfPoint>> _readPointsWithoutRetry(String objectName) async {
+    ObjectInfo info;
+
+    try {
+      info = await _gcsBucket.info(objectName);
+    } catch (e) {
+      if (e.toString().contains('No such object')) {
+        return [];
+      } else {
+        rethrow;
+      }
+    }
+
     final Stream<List<int>> stream = _gcsBucket.read(objectName);
     final Stream<int> byteStream = stream.expand((x) => x);
     final Map<String, dynamic> decodedJson =
