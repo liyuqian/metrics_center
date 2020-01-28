@@ -302,8 +302,10 @@ class SkiaPerfGcsAdaptor {
     final String topComponent = _githubRepoToGcsName[githubRepo];
     final DateTime t =
         await GithubHelper().getCommitDateTime(githubRepo, revision);
+    final String month = t.month.toString().padLeft(2, '0');
+    final String day = t.day.toString().padLeft(2, '0');
     final String hour = t.hour.toString().padLeft(2, '0');
-    final String dateComponents = '${t.year}/${t.month}/${t.day}/$hour';
+    final String dateComponents = '${t.year}/${month}/${day}/$hour';
     return '$topComponent/$dateComponents/$revision/values.json';
   }
 

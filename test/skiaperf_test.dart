@@ -40,6 +40,7 @@ void main() {
   const String name2 = 'analyzer_benchmark.flutter_repo_watch_maximum';
 
   const String engineRevision1 = '617938024315e205f26ed72ff0f0647775fa6a71';
+  const String engineRevision2 = '5858519139c22484aaff1cf5b26bdf7951259344';
 
   final cocoonPointRev1Name1 = MetricPoint(
     value1,
@@ -271,12 +272,17 @@ void main() {
     expect(
       await SkiaPerfGcsAdaptor.comptueObjectName(
           kFlutterFrameworkRepo, frameworkRevision1),
-      equals('flutter-flutter/2019/12/4/23/$frameworkRevision1/values.json'),
+      equals('flutter-flutter/2019/12/04/23/$frameworkRevision1/values.json'),
     );
     expect(
       await SkiaPerfGcsAdaptor.comptueObjectName(
           kFlutterEngineRepo, engineRevision1),
-      equals('flutter-engine/2019/12/3/20/$engineRevision1/values.json'),
+      equals('flutter-engine/2019/12/03/20/$engineRevision1/values.json'),
+    );
+    expect(
+      await SkiaPerfGcsAdaptor.comptueObjectName(
+          kFlutterEngineRepo, engineRevision2),
+      equals('flutter-engine/2020/01/03/15/$engineRevision2/values.json'),
     );
   });
 
