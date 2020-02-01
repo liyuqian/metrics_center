@@ -76,7 +76,12 @@ class SkiaPerfPoint extends MetricPoint {
               entry.key != kGithubRepoKey &&
               entry.key != kGitRevisionKey &&
               entry.key != kNameKey &&
-              entry.key != kSubResultKey,
+              entry.key != kSubResultKey &&
+              // https://github.com/google/benchmark automatically generates a
+              // 'date' field. If it's included in options, the Skia perf won't
+              // be able to connect different points in a single trace because
+              // the date is always different.
+              entry.key != 'date',
         ),
       );
 

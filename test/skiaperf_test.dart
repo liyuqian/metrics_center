@@ -197,7 +197,6 @@ void main() {
         "cpu_time": 101.0,
         "options": {
           "cpu_scaling_enabled": "true",
-          "date": "2019-12-17 15:14:14",
           "library_build_type": "release",
           "mhz_per_cpu": "2594",
           "num_cpus": "56",
