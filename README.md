@@ -1,3 +1,7 @@
+# Data flow
+
+![Data flow](./metrics_center_data_flow.svg)
+
 # Overall concepts
 
 - `MetricPoint`: canonical format of metrics
