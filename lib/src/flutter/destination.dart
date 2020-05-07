@@ -36,8 +36,7 @@ class FlutterDestination extends MetricDestination {
 
 /// Convenient class to capture the benchmarks in the Flutter engine repo.
 class FlutterEngineMetricPoint extends MetricPoint {
-  FlutterEngineMetricPoint(
-      String name, double value, String gitRevision,
+  FlutterEngineMetricPoint(String name, double value, String gitRevision,
       {Map<String, String> moreTags})
       : super(
             value,
@@ -45,6 +44,6 @@ class FlutterEngineMetricPoint extends MetricPoint {
               kNameKey: name,
               kGithubRepoKey: kFlutterEngineRepo,
               kGitRevisionKey: gitRevision,
-            }..addAll(moreTags?? {}),
+            }..addAll(moreTags ?? {}),
             kFlutterCenterId);
 }
