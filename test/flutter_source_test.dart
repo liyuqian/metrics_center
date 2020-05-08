@@ -63,18 +63,20 @@ void main() {
         0.0,
         <String, dynamic>{'gitRevision': 'sha1'},
         'flutter-center',
-        DateTime.fromMicrosecondsSinceEpoch(20),
+        null,
       );
       MetricPointModel model1 = MetricPointModel(from: point1)
-        ..parentKey = fakeDB.emptyKey;
+        ..parentKey = fakeDB.emptyKey
+        ..sourceTimeMicros = null;
       MetricPoint point2 = MetricPoint(
         0.0,
         <String, dynamic>{'gitRevision': 'sha2'},
         'flutter-center',
-        DateTime.fromMicrosecondsSinceEpoch(30),
+        null,
       );
       MetricPointModel model2 = MetricPointModel(from: point2)
-        ..parentKey = fakeDB.emptyKey;
+        ..parentKey = fakeDB.emptyKey
+        ..sourceTimeMicros = null;
 
       fakeDB.values[model1.key] = model1;
       fakeDB.values[model2.key] = model2;
