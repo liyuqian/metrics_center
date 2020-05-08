@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'dart:collection';
 
+import 'package:equatable/equatable.dart';
 import 'package:crypto/crypto.dart';
 
 /// Common format of a metric data point
-class MetricPoint {
+class MetricPoint extends Equatable {
   MetricPoint(
     this.value,
     Map<String, dynamic> tags,
@@ -31,6 +32,11 @@ class MetricPoint {
   /// (Because we are using an ordered SplayTreeMap to generate the id.)
   String get id => sha256.convert(utf8.encode('$originId: $_tags')).toString();
 
+  @override
+  String toString() {
+    return 'MetricPoint(value=$value, tags=$_tags, originId=$originId, sourceTime=$sourceTime)';
+  }
+
   /// Where this point originally comes from. Used for dedup.
   ///
   /// This should stay constant as the point is transferred among multiple
@@ -42,6 +48,9 @@ class MetricPoint {
   final DateTime sourceTime;
 
   final SplayTreeMap<String, String> _tags;
+
+  @override
+  List<Object> get props => [value, tags, originId, sourceTime];
 }
 
 /// Source must support efficient index on [MetricPoint.sourceTime]

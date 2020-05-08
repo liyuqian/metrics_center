@@ -285,7 +285,8 @@ class SkiaPerfGcsAdaptor {
     for (String name in results.keys) {
       final Map<String, dynamic> subResultMap =
           results[name][kSkiaPerfDefaultConfig];
-      for (String subResult in subResultMap.keys.where((s) => s != kSkiaPerfOptionsKey)) {
+      for (String subResult
+          in subResultMap.keys.where((s) => s != kSkiaPerfOptionsKey)) {
         points.add(SkiaPerfPoint._(
           githubRepo,
           gitHash,

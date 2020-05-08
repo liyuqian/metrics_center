@@ -21,7 +21,8 @@ void main() {
   test('limitSize works correctly.', () {
     final points = List<MetricPoint>();
     for (int i = 0; i < 10; i += 1) {
-      points.add(MetricPoint(i.toDouble(), {'i': '$i'}, kTestSourceId, DateTime.fromMicrosecondsSinceEpoch(i < 5 ? 0 : 1)));
+      points.add(MetricPoint(i.toDouble(), {'i': '$i'}, kTestSourceId,
+          DateTime.fromMicrosecondsSinceEpoch(i < 5 ? 0 : 1)));
     }
 
     expect(FlutterCenter.limitSize(points, 20).length, equals(10));
@@ -223,7 +224,7 @@ void main() {
         flutterSource.queryTime.microsecondsSinceEpoch,
         lessThan(t0.microsecondsSinceEpoch),
       );
-     }
+    }
   });
 }
 

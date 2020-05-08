@@ -42,7 +42,9 @@ class FlutterSource extends MetricSource {
     final Query query = _db.query<MetricPointModel>();
     // TODO(liyuqian): Undo the 300 limit once
     // https://github.com/dart-lang/gcloud/issues/87 is fixed.
-    query..filter('$kSourceTimeMicrosName =', null)..limit(300);
+    query
+      ..filter('$kSourceTimeMicrosName =', null)
+      ..limit(300);
     List<MetricPointModel> points = await query.run().toList();
 
     for (int start = 0; start < points.length; start += kMaxBatchSize) {
