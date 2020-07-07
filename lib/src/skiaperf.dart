@@ -37,7 +37,7 @@ import 'package:metrics_center/src/common.dart';
 //     ...
 
 class SkiaPerfPoint extends MetricPoint {
-  SkiaPerfPoint._(this.githubRepo, this.gitHash, this.name, this._subResult,
+  SkiaPerfPoint._(this.githubRepo, this.gitHash, this.name, this.subResult,
       double value, this._options, this.jsonUrl, DateTime sourceTime)
       : super(
           value,
@@ -47,7 +47,7 @@ class SkiaPerfPoint extends MetricPoint {
               kGithubRepoKey: githubRepo,
               kGitRevisionKey: gitHash,
               kNameKey: name,
-              kSubResultKey: _subResult,
+              kSubResultKey: subResult,
             }),
           _options[kOriginIdKey] ?? kSkiaPerfId,
           sourceTime,
@@ -104,9 +104,17 @@ class SkiaPerfPoint extends MetricPoint {
 
   final String name;
 
-  // The name of "subResult" comes from the special treatment of "sub_result" in
-  // SkiaPerf. If not provided, its value will be set to kSkiaPerfValueKey.
-  final String _subResult;
+  /// The name of "subResult" comes from the special treatment of "sub_result"
+  /// in SkiaPerf. If not provided, its value will be set to kSkiaPerfValueKey.
+  ///
+  /// When Google benchmarks are converted to SkiaPerfPoint, this subResult
+  /// could be "cpu_time" or "real_time".
+  ///
+  /// When Cocoon benchmarks are converted to SkiaPerfPoint, this subResult is
+  /// often the metric name such as "average_frame_build_time_millis" whereas
+  /// the [name] is the benchmark or task name such as
+  /// "flutter_gallery__transition_perf".
+  final String subResult;
 
   /// The url to the Skia perf json file in the Google Cloud Storage bucket.
   ///
@@ -115,7 +123,7 @@ class SkiaPerfPoint extends MetricPoint {
 
   Map<String, dynamic> _toSubResultJson() {
     return <String, dynamic>{
-      _subResult: value,
+      subResult: value,
       kSkiaPerfOptionsKey: _options,
     };
   }
@@ -144,15 +152,15 @@ class SkiaPerfPoint extends MetricPoint {
           kSkiaPerfDefaultConfig: subResultJson,
         };
       } else {
-        // Flutter currently does't support having the same name but different
+        // Flutter currently doesn't support having the same name but different
         // options/configurations. If this actually happens in the future, we
         // probably can use different values of config (currently there's only
         // one kSkiaPerfDefaultConfig) to resolve the conflict.
         assert(results[p.name][kSkiaPerfDefaultConfig][kSkiaPerfOptionsKey]
                 .toString() ==
             subResultJson[kSkiaPerfOptionsKey].toString());
-        assert(results[p.name][kSkiaPerfDefaultConfig][p._subResult] == null);
-        results[p.name][kSkiaPerfDefaultConfig][p._subResult] = p.value;
+        assert(results[p.name][kSkiaPerfDefaultConfig][p.subResult] == null);
+        results[p.name][kSkiaPerfDefaultConfig][p.subResult] = p.value;
       }
     }
 

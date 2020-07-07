@@ -36,44 +36,75 @@ void main() {
 
   const String frameworkRevision1 = '9011cece2595447eea5dd91adaa241c1c9ef9a33';
   const String frameworkRevision2 = '372fe290e4d4f3f97cbf02a57d235771a9412f10';
-  const String name1 = 'analyzer_benchmark.flutter_repo_batch_maximum';
-  const String name2 = 'analyzer_benchmark.flutter_repo_watch_maximum';
+  const String taskName = 'analyzer_benchmark';
+  const String metric1 = 'flutter_repo_batch_maximum';
+  const String metric2 = 'flutter_repo_watch_maximum';
 
   const String engineRevision1 = '617938024315e205f26ed72ff0f0647775fa6a71';
   const String engineRevision2 = '5858519139c22484aaff1cf5b26bdf7951259344';
 
-  final cocoonPointRev1Name1 = MetricPoint(
+  final cocoonPointRev1Metric1 = MetricPoint(
     value1,
     <String, dynamic>{
       kGithubRepoKey: kFlutterFrameworkRepo,
       kGitRevisionKey: frameworkRevision1,
-      kTaskNameKey: 'analyzer_benchmark',
-      kNameKey: name1,
+      kNameKey: taskName,
+      kSubResultKey: metric1,
       kUnitKey: 's',
     },
     kCocoonId,
   );
 
-  final cocoonPointRev1Name2 = MetricPoint(
+  final cocoonPointRev1Metric2 = MetricPoint(
     value2,
     <String, dynamic>{
       kGithubRepoKey: kFlutterFrameworkRepo,
       kGitRevisionKey: frameworkRevision1,
-      kTaskNameKey: 'analyzer_benchmark',
-      kNameKey: name2,
+      kNameKey: taskName,
+      kSubResultKey: metric2,
       kUnitKey: 's',
     },
     kCocoonId,
   );
 
-  final cocoonPointRev2Name1 = MetricPoint(
+  final cocoonPointRev2Metric1 = MetricPoint(
     value3,
     <String, dynamic>{
       kGithubRepoKey: kFlutterFrameworkRepo,
       kGitRevisionKey: frameworkRevision2,
-      kTaskNameKey: 'analyzer_benchmark',
-      kNameKey: name1,
+      kNameKey: taskName,
+      kSubResultKey: metric1,
       kUnitKey: 's',
+    },
+    kCocoonId,
+  );
+
+  final cocoonPointBetaRev1Metric1 = MetricPoint(
+    value1,
+    <String, dynamic>{
+      kGithubRepoKey: kFlutterFrameworkRepo,
+      kGitRevisionKey: frameworkRevision1,
+      kNameKey: 'beta/$taskName',
+      kSubResultKey: metric1,
+      kUnitKey: 's',
+      'branch': 'beta',
+    },
+    kCocoonId,
+  );
+
+  final cocoonPointBetaRev1Metric1BadName = MetricPoint(
+    value1,
+    <String, dynamic>{
+      kGithubRepoKey: kFlutterFrameworkRepo,
+      kGitRevisionKey: frameworkRevision1,
+      kNameKey: taskName,
+      kSubResultKey: metric1,
+      kUnitKey: 's',
+
+      // If we only add this 'branch' tag without changing the value of, an
+      // exception would be thrown as Skia Perf currently only supports the same
+      // set of tags for a pair of kNameKey and kSubResultKey values.
+      'branch': 'beta',
     },
     kCocoonId,
   );
@@ -135,42 +166,45 @@ void main() {
   });
 
   test('Correctly convert a base point from cocoon to SkiaPoint', () {
-    final skiaPoint1 = SkiaPerfPoint.fromPoint(cocoonPointRev1Name1);
+    final skiaPoint1 = SkiaPerfPoint.fromPoint(cocoonPointRev1Metric1);
     expect(skiaPoint1, isNotNull);
     expect(skiaPoint1.originId, equals(kCocoonId));
-    expect(skiaPoint1.name, equals(name1));
-    expect(skiaPoint1.value, equals(cocoonPointRev1Name1.value));
+    expect(skiaPoint1.name, equals(taskName));
+    expect(skiaPoint1.subResult, equals(metric1));
+    expect(skiaPoint1.value, equals(cocoonPointRev1Metric1.value));
 
     expect(skiaPoint1.sourceTime, isNull); // Not inserted yet
     expect(skiaPoint1.jsonUrl, isNull); // Not inserted yet
   });
 
   test('Cocoon points correctly encode into Skia perf json format', () {
-    final p1 = SkiaPerfPoint.fromPoint(cocoonPointRev1Name1);
-    final p2 = SkiaPerfPoint.fromPoint(cocoonPointRev1Name2);
+    final p1 = SkiaPerfPoint.fromPoint(cocoonPointRev1Metric1);
+    final p2 = SkiaPerfPoint.fromPoint(cocoonPointRev1Metric2);
+    final p3 = SkiaPerfPoint.fromPoint(cocoonPointBetaRev1Metric1);
 
     final JsonEncoder encoder = JsonEncoder.withIndent('  ');
+
     expect(
-        encoder.convert(SkiaPerfPoint.toSkiaPerfJson(<SkiaPerfPoint>[p1, p2])),
+        encoder.convert(SkiaPerfPoint.toSkiaPerfJson(<SkiaPerfPoint>[p1, p2, p3])),
         equals('''
 {
   "gitHash": "9011cece2595447eea5dd91adaa241c1c9ef9a33",
   "results": {
-    "analyzer_benchmark.flutter_repo_batch_maximum": {
+    "analyzer_benchmark": {
       "default": {
-        "value": 1.0,
+        "flutter_repo_batch_maximum": 1.0,
         "options": {
-          "taskName": "analyzer_benchmark",
           "unit": "s",
           "originId": "cocoon"
-        }
+        },
+        "flutter_repo_watch_maximum": 2.0
       }
     },
-    "analyzer_benchmark.flutter_repo_watch_maximum": {
+    "beta/analyzer_benchmark": {
       "default": {
-        "value": 2.0,
+        "flutter_repo_batch_maximum": 1.0,
         "options": {
-          "taskName": "analyzer_benchmark",
+          "branch": "beta",
           "unit": "s",
           "originId": "cocoon"
         }
@@ -178,6 +212,17 @@ void main() {
     }
   }
 }'''));
+  });
+
+  test('Throws if two SkiaPerfPoints have the same name and subResult keys, '
+       'but different options', () {
+    final p1 = SkiaPerfPoint.fromPoint(cocoonPointRev1Metric1);
+    final p2 = SkiaPerfPoint.fromPoint(cocoonPointBetaRev1Metric1BadName);
+
+    expect(
+      () => SkiaPerfPoint.toSkiaPerfJson(<SkiaPerfPoint>[p1, p2]),
+      throwsA(anything),
+    );
   });
 
   test('Engine points correctly encode into Skia perf json format', () {
@@ -247,18 +292,19 @@ void main() {
   test('SkiaPerfDestination correctly updates points', () async {
     final mockGcs = MockSkiaPerfGcsAdaptor();
     final dst = SkiaPerfDestination(mockGcs);
-    await dst.update(<MetricPoint>[cocoonPointRev1Name1]);
-    await dst.update(<MetricPoint>[cocoonPointRev1Name2]);
+    await dst.update(<MetricPoint>[cocoonPointRev1Metric1]);
+    await dst.update(<MetricPoint>[cocoonPointRev1Metric2]);
     List<SkiaPerfPoint> points = await mockGcs.readPoints(
         await SkiaPerfGcsAdaptor.comptueObjectName(
             kFlutterFrameworkRepo, frameworkRevision1));
     expect(points.length, equals(2));
     expectSetMatch<String>(
         points.map((SkiaPerfPoint p) => p.originId), [kCocoonId, kCocoonId]);
-    expectSetMatch(points.map((SkiaPerfPoint p) => p.name), [name1, name2]);
+    expectSetMatch(points.map((SkiaPerfPoint p) => p.name), [taskName]);
+    expectSetMatch(points.map((SkiaPerfPoint p) => p.subResult), [metric1, metric2]);
     expectSetMatch(points.map((SkiaPerfPoint p) => p.value), [value1, value2]);
 
-    await dst.update(<MetricPoint>[cocoonPointRev1Name1, cocoonPointRev2Name1]);
+    await dst.update(<MetricPoint>[cocoonPointRev1Metric1, cocoonPointRev2Metric1]);
     points = await mockGcs.readPoints(
         await SkiaPerfGcsAdaptor.comptueObjectName(
             kFlutterFrameworkRepo, frameworkRevision2));
@@ -295,7 +341,6 @@ void main() {
 
     expect(await storage.bucketExists(SkiaPerfDestination.kTestBucketName),
         isTrue);
-
     final Bucket testBucket =
         storage.bucket(SkiaPerfDestination.kTestBucketName);
     final skiaPerfGcs = SkiaPerfGcsAdaptor(testBucket);
@@ -304,8 +349,8 @@ void main() {
         kFlutterFrameworkRepo, frameworkRevision1);
 
     await skiaPerfGcs.writePoints(testObjectName, <SkiaPerfPoint>[
-      SkiaPerfPoint.fromPoint(cocoonPointRev1Name1),
-      SkiaPerfPoint.fromPoint(cocoonPointRev1Name2),
+      SkiaPerfPoint.fromPoint(cocoonPointRev1Metric1),
+      SkiaPerfPoint.fromPoint(cocoonPointRev1Metric2),
     ]);
 
     final List<SkiaPerfPoint> points =
@@ -313,7 +358,7 @@ void main() {
     expect(points.length, equals(2));
     expectSetMatch<String>(
         points.map((SkiaPerfPoint p) => p.originId), [kCocoonId, kCocoonId]);
-    expectSetMatch(points.map((SkiaPerfPoint p) => p.name), [name1, name2]);
+    expectSetMatch(points.map((SkiaPerfPoint p) => p.name), [metric1, metric2]);
     expectSetMatch(points.map((SkiaPerfPoint p) => p.value), [value1, value2]);
     expectSetMatch(
         points.map((SkiaPerfPoint p) => p.githubRepo), [kFlutterFrameworkRepo]);
@@ -398,6 +443,6 @@ void main() {
     final destination = await SkiaPerfDestination.makeFromGcpCredentials(
         credentialsJson,
         isTesting: true);
-    await destination.update([cocoonPointRev1Name1]);
+    await destination.update([cocoonPointRev1Metric1]);
   });
 }

@@ -102,7 +102,6 @@ abstract class MetricDestination {
 const String kGithubRepoKey = 'gitRepo';
 const String kGitRevisionKey = 'gitRevision';
 const String kOriginIdKey = 'originId';
-const String kTaskNameKey = 'taskName';
 const String kUnitKey = 'unit';
 const String kNameKey = 'name';
 const String kSubResultKey = 'subResult';
