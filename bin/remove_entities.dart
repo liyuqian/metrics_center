@@ -6,6 +6,10 @@ import 'package:gcloud/db.dart';
 import 'package:metrics_center/src/flutter/common.dart';
 
 Future<void> main(List<String> args) async {
+  // As this script is dangerous, this return works as a safeguard.
+  // Please remove it before actual execution.
+  return;
+
   final String credentials =
       File('secret/gcp_credentials.json').readAsStringSync();
   final db = await datastoreFromCredentialsJson(jsonDecode(credentials));
