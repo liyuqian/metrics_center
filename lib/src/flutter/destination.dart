@@ -14,6 +14,13 @@ class FlutterDestination extends MetricDestination {
     return FlutterDestination(await datastoreFromCredentialsJson(json));
   }
 
+  static FlutterDestination makeFromAccessToken(
+    String accessToken, [
+    String projectId = kDefaultGoogleCloudProjectId,
+  ]) {
+    return FlutterDestination(datastoreFromAccessToken(accessToken, projectId));
+  }
+
   @override
   String get id => kFlutterCenterId;
 
@@ -36,9 +43,12 @@ class FlutterDestination extends MetricDestination {
 
 /// Convenient class to capture the benchmarks in the Flutter engine repo.
 class FlutterEngineMetricPoint extends MetricPoint {
-  FlutterEngineMetricPoint(String name, double value, String gitRevision,
-      {Map<String, String> moreTags})
-      : super(
+  FlutterEngineMetricPoint(
+    String name,
+    double value,
+    String gitRevision, {
+    Map<String, String> moreTags,
+  }) : super(
             value,
             {
               kNameKey: name,

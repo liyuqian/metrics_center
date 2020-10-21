@@ -358,7 +358,8 @@ void main() {
     expect(points.length, equals(2));
     expectSetMatch<String>(
         points.map((SkiaPerfPoint p) => p.originId), [kCocoonId, kCocoonId]);
-    expectSetMatch(points.map((SkiaPerfPoint p) => p.name), [metric1, metric2]);
+    expectSetMatch(points.map((SkiaPerfPoint p) => p.name), [taskName]);
+    expectSetMatch(points.map((SkiaPerfPoint p) => p.subResult), [metric1, metric2]);
     expectSetMatch(points.map((SkiaPerfPoint p) => p.value), [value1, value2]);
     expectSetMatch(
         points.map((SkiaPerfPoint p) => p.githubRepo), [kFlutterFrameworkRepo]);

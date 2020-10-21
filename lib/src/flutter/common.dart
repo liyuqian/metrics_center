@@ -4,6 +4,7 @@ import 'package:gcloud/db.dart';
 import 'package:gcloud/src/datastore_impl.dart';
 import 'package:googleapis_auth/auth.dart';
 import 'package:googleapis_auth/auth_io.dart';
+import 'package:http/http.dart';
 
 import 'package:metrics_center/src/common.dart';
 
@@ -49,3 +50,22 @@ Future<DatastoreDB> datastoreFromCredentialsJson(
       ServiceAccountCredentials.fromJson(json), DatastoreImpl.SCOPES);
   return DatastoreDB(DatastoreImpl(client, json['project_id']));
 }
+
+AuthClient authClientFromAccessToken(String token, List<String> scopes) {
+  final DateTime anHourLater = DateTime.now().add(Duration(hours: 1));
+  final AccessToken accessToken =
+      AccessToken('Bearer', token, anHourLater.toUtc());
+  final AccessCredentials accessCredentials =
+      AccessCredentials(accessToken, null, scopes);
+  return authenticatedClient(Client(), accessCredentials);
+}
+
+DatastoreDB datastoreFromAccessToken(
+  String token, [
+  String projectId = kDefaultGoogleCloudProjectId,
+]) {
+  final client = authClientFromAccessToken(token, DatastoreImpl.SCOPES);
+  return DatastoreDB(DatastoreImpl(client, projectId));
+}
+
+const String kDefaultGoogleCloudProjectId = 'flutter-cirrus';
